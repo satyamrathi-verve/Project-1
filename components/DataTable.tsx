@@ -8,6 +8,8 @@ export interface Column<T> {
   className?: string;
   /** Set to make this column's header clickable for sorting (requires sortKey/onSort on DataTable). */
   sortable?: boolean;
+  /** Renders instead of `header` text — e.g. a select-all checkbox in a header cell. */
+  headerContent?: ReactNode;
 }
 
 /*
@@ -63,7 +65,7 @@ export function DataTable<T extends { id: string }>({
                   c.sortable && onSort ? "cursor-pointer select-none whitespace-nowrap hover:text-ink" : ""
                 }`}
               >
-                {c.header}
+                {c.headerContent ?? c.header}
                 {c.sortable && sortKey === c.key && <span className="ml-1">{sortDir === "asc" ? "▲" : "▼"}</span>}
               </th>
             ))}
