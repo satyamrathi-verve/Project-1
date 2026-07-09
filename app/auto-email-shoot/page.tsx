@@ -6,6 +6,7 @@ import { isConfigured, supabase } from "@/lib/supabase";
 import { PageHeader } from "@/components/PageHeader";
 import { NotConfigured } from "@/components/NotConfigured";
 import { DataTable, type Column } from "@/components/DataTable";
+import { Modal } from "@/components/Modal";
 import { MultiSelect } from "@/components/MultiSelect";
 import { Pagination } from "@/components/Pagination";
 import { inputClass } from "@/components/FormField";
@@ -401,6 +402,7 @@ export default function AutoEmailShootPage() {
           type="checkbox"
           checked={selected.has(row.id)}
           onChange={() => toggleRow(row.id)}
+          aria-label={`${selected.has(row.id) ? "Deselect" : "Select"} invoice ${row.invoice_no} (${row.customer_name})`}
           className="h-4 w-4 rounded border-slate-300 text-brand focus:ring-brand"
         />
       ),
@@ -613,17 +615,10 @@ export default function AutoEmailShootPage() {
                 setPreviewOpen(true);
               }}
               disabled={selected.size === 0 || !template}
-              className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Preview Email
-            </button>
-            <button
-              onClick={handleSend}
-              disabled={sending || selected.size === 0 || !template}
-              title={selected.size === 0 ? "Please select at least one invoice to send reminder emails." : undefined}
+              title={selected.size === 0 ? "Select at least one invoice to review and send reminders." : undefined}
               className="rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {sending ? "Sending…" : `Send Reminders (${selected.size})`}
+              Review &amp; Send{selected.size > 0 ? ` (${selected.size})` : ""}
             </button>
           </div>
         }
@@ -654,37 +649,39 @@ export default function AutoEmailShootPage() {
         <MultiSelect label="Ageing" options={AGING_BUCKETS} selected={agingFilter} onChange={setAgingFilter} />
       </div>
 
-      {loading ? (
-        <p className="text-sm text-slate-500">Loading invoices…</p>
-      ) : (
-        <>
-          <div className="mb-2 flex items-center justify-between">
-            <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
-              Invoices ({sortedRows.length})
-            </h3>
-            <span className="text-xs font-medium text-slate-600">{selected.size} Invoices Selected</span>
-          </div>
-          <DataTable
-            columns={columns}
-            rows={pagedRows}
-            sortKey={sortKey}
-            sortDir={sortDir}
-            onSort={handleSort}
-            empty="No invoices match the current filters."
-            footer={
-              <tr className="border-t-2 border-slate-300 bg-slate-50 font-semibold text-slate-900">
-                <td colSpan={5} className="px-4 py-3 text-right align-middle whitespace-nowrap">
-                  Total Receivables
-                </td>
-                <td className="px-4 py-3 text-right align-middle whitespace-nowrap">{money(totalOutstanding)}</td>
-                <td colSpan={3} className="px-4 py-3" />
-              </tr>
-            }
-          />
-          {sortedRows.length > 0 && (
-            <Pagination page={page} pageSize={pageSize} total={sortedRows.length} onPageChange={setPage} onPageSizeChange={setPageSize} />
-          )}
-        </>
+      <div className="mb-2 flex items-center justify-between">
+        <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+          Invoices ({sortedRows.length})
+        </h3>
+        {selected.size > 0 && (
+          <span className="text-xs font-medium text-slate-600">
+            {selected.size} Invoices Selected ·{" "}
+            <button onClick={() => setSelected(new Set())} className="font-semibold text-brand hover:underline">
+              Clear selection
+            </button>
+          </span>
+        )}
+      </div>
+      <DataTable
+        columns={columns}
+        rows={pagedRows}
+        loading={loading}
+        sortKey={sortKey}
+        sortDir={sortDir}
+        onSort={handleSort}
+        empty="No invoices match the current filters."
+        footer={
+          <tr className="border-t-2 border-slate-300 bg-slate-50 font-semibold text-slate-900">
+            <td colSpan={5} className="px-4 py-3 text-right align-middle whitespace-nowrap">
+              Total Receivables
+            </td>
+            <td className="px-4 py-3 text-right align-middle whitespace-nowrap">{money(totalOutstanding)}</td>
+            <td colSpan={3} className="px-4 py-3" />
+          </tr>
+        }
+      />
+      {!loading && sortedRows.length > 0 && (
+        <Pagination page={page} pageSize={pageSize} total={sortedRows.length} onPageChange={setPage} onPageSizeChange={setPageSize} />
       )}
 
       {sentLog.length > 0 && (
@@ -696,87 +693,86 @@ export default function AutoEmailShootPage() {
         </div>
       )}
 
-      {previewOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
-          <div className="flex max-h-[90vh] w-full max-w-3xl flex-col rounded-xl bg-white shadow-xl">
-            <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
-              <h2 className="text-lg font-semibold text-slate-900">Email Preview</h2>
-              <button
-                onClick={() => setPreviewOpen(false)}
-                aria-label="Close preview"
-                className="text-slate-400 hover:text-slate-600"
-              >
-                ✕
-              </button>
-            </div>
-
-            {previewGroups.length > 1 && (
-              <div className="flex flex-wrap gap-2 border-b border-slate-200 px-6 py-3">
-                {previewGroups.map((g, i) => (
-                  <button
-                    key={g.customerId}
-                    onClick={() => setPreviewTab(i)}
-                    className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-                      i === previewTab ? "bg-brand text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                    }`}
-                  >
-                    {g.customerName} ({g.invoiceCount}){!g.customerEmail && " ⚠"}
-                  </button>
-                ))}
-              </div>
-            )}
-
-            <div className="flex-1 overflow-y-auto px-6 py-4">
-              {activePreviewGroup ? (
-                <>
-                  {!activePreviewGroup.customerEmail && (
-                    <div className="mb-4 rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">
-                      No email on file for {activePreviewGroup.customerName} — this reminder can&apos;t be sent until a customer email is added.
-                    </div>
-                  )}
-                  <p className="mb-2 text-sm">
-                    <span className="font-medium text-slate-500">To: </span>
-                    <span className="text-slate-800">{activePreviewGroup.customerEmail ?? "—"}</span>
-                  </p>
-                  <p className="mb-3 text-sm">
-                    <span className="font-medium text-slate-500">Subject: </span>
-                    <span className="text-slate-800">{activePreviewGroup.subject || "(empty subject)"}</span>
-                  </p>
-                  <div
-                    className="rounded-lg border border-slate-200 bg-slate-50 p-4"
-                    dangerouslySetInnerHTML={{ __html: activePreviewGroup.bodyHtml }}
-                  />
-                </>
-              ) : (
-                <p className="text-sm text-slate-500">Nothing selected to preview.</p>
-              )}
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2 border-t border-slate-200 px-6 py-4">
-              <Link
-                href="/auto-email-shoot/template"
-                className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-              >
-                Edit Template
-              </Link>
-              <button
-                onClick={() => setPreviewOpen(false)}
-                className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-              >
-                Close Preview
-              </button>
-              <button
-                onClick={handleSend}
-                disabled={sending || previewHasErrors}
-                title={previewHasErrors ? "Fix the issues above before sending" : undefined}
-                className="ml-auto rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {sending ? "Sending…" : "Send Email"}
-              </button>
-            </div>
-          </div>
+      <Modal open={previewOpen} onClose={() => setPreviewOpen(false)} titleId="email-preview-title">
+        <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
+          <h2 id="email-preview-title" className="text-lg font-semibold text-slate-900">
+            Email Preview
+          </h2>
+          <button
+            onClick={() => setPreviewOpen(false)}
+            aria-label="Close preview"
+            className="text-slate-400 hover:text-slate-600"
+          >
+            ✕
+          </button>
         </div>
-      )}
+
+        {previewGroups.length > 1 && (
+          <div className="flex flex-wrap gap-2 border-b border-slate-200 px-6 py-3">
+            {previewGroups.map((g, i) => (
+              <button
+                key={g.customerId}
+                onClick={() => setPreviewTab(i)}
+                aria-current={i === previewTab ? "true" : undefined}
+                className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                  i === previewTab ? "bg-brand text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                }`}
+              >
+                {g.customerName} ({g.invoiceCount}){!g.customerEmail && " ⚠"}
+              </button>
+            ))}
+          </div>
+        )}
+
+        <div className="flex-1 overflow-y-auto px-6 py-4">
+          {activePreviewGroup ? (
+            <>
+              {!activePreviewGroup.customerEmail && (
+                <div className="mb-4 rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">
+                  No email on file for {activePreviewGroup.customerName} — this reminder can&apos;t be sent until a customer email is added.
+                </div>
+              )}
+              <p className="mb-2 text-sm">
+                <span className="font-medium text-slate-500">To: </span>
+                <span className="text-slate-800">{activePreviewGroup.customerEmail ?? "—"}</span>
+              </p>
+              <p className="mb-3 text-sm">
+                <span className="font-medium text-slate-500">Subject: </span>
+                <span className="text-slate-800">{activePreviewGroup.subject || "(empty subject)"}</span>
+              </p>
+              <div
+                className="rounded-lg border border-slate-200 bg-slate-50 p-4"
+                dangerouslySetInnerHTML={{ __html: activePreviewGroup.bodyHtml }}
+              />
+            </>
+          ) : (
+            <p className="text-sm text-slate-500">Nothing selected to preview.</p>
+          )}
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2 border-t border-slate-200 px-6 py-4">
+          <Link
+            href="/auto-email-shoot/template"
+            className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+          >
+            Edit Template
+          </Link>
+          <button
+            onClick={() => setPreviewOpen(false)}
+            className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+          >
+            Close Preview
+          </button>
+          <button
+            onClick={handleSend}
+            disabled={sending || previewHasErrors}
+            title={previewHasErrors ? "Fix the issues above before sending" : undefined}
+            className="ml-auto rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {sending ? "Sending…" : "Send Email"}
+          </button>
+        </div>
+      </Modal>
     </>
   );
 }

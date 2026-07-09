@@ -31,7 +31,7 @@ export function DataTable<T extends { id: string }>({
   sortDir,
   onSort,
   loading = false,
-  skeletonRows = 5,
+  skeletonRows = 6,
 }: {
   columns: Column<T>[];
   rows: T[];
@@ -51,9 +51,9 @@ export function DataTable<T extends { id: string }>({
   sortKey?: string;
   sortDir?: "asc" | "desc";
   onSort?: (key: string) => void;
-  /** Show shimmering placeholder rows instead of data/empty state. */
+  /** Shows animated placeholder rows instead of `rows` while data is still loading. */
   loading?: boolean;
-  /** How many placeholder rows to show while loading. */
+  /** How many placeholder rows to show while `loading`. */
   skeletonRows?: number;
 }) {
   const tableId = useId();
@@ -74,8 +74,12 @@ export function DataTable<T extends { id: string }>({
 
   return (
     <div className="themed-surface overflow-x-auto overflow-y-hidden rounded-xl border border-line bg-surface">
-      <table className="w-full text-sm">
-        {caption && <caption className="sr-only">{caption}</caption>}
+      <table className="w-full text-sm" aria-busy={loading || undefined}>
+        {(caption || loading) && (
+          <caption className="sr-only" role={loading ? "status" : undefined}>
+            {loading ? "Loading…" : caption}
+          </caption>
+        )}
         <thead>
           <tr className="border-b border-line bg-surface2 text-left">
             {columns.map((c) => (
@@ -101,10 +105,13 @@ export function DataTable<T extends { id: string }>({
         >
           {loading ? (
             Array.from({ length: skeletonRows }).map((_, i) => (
-              <tr key={`skeleton-${i}`} className="border-b border-line last:border-0">
+              <tr key={`skeleton-${i}`} className="border-b border-line last:border-0" aria-hidden="true">
                 {columns.map((c) => (
-                  <td key={c.key} className="px-4 py-3">
-                    <div className="h-4 w-full max-w-[10rem] animate-pulse rounded bg-surface2" />
+                  <td key={c.key} className={`px-4 py-3 ${c.className ?? ""}`}>
+                    <div
+                      className="h-4 animate-pulse rounded bg-surface2 motion-reduce:animate-none"
+                      style={{ width: `${55 + ((i * 13 + c.key.length * 7) % 35)}%` }}
+                    />
                   </td>
                 ))}
               </tr>
