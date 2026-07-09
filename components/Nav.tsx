@@ -21,7 +21,7 @@ const LINKS: { href: string; label: string; built: boolean }[] = [
   { href: "/reports/statement", label: "Customer Statement", built: false },
   { href: "/reports/ageing", label: "AR Ageing", built: true },
   { href: "/cashflow", label: "Cashflow Projection", built: false },
-  { href: "/dashboard", label: "Dashboard", built: false },
+  { href: "/dashboard", label: "Dashboard", built: true },
 ];
 
 export function Nav() {
