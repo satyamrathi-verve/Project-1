@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { Fragment, type ReactNode } from "react";
 
 export interface Column<T> {
   key: string;
@@ -17,6 +17,9 @@ export function DataTable<T extends { id: string }>({
   rows,
   empty = "Nothing here yet.",
   rowClassName,
+  footer,
+  expandedRowId,
+  renderExpanded,
   onRowClick,
 }: {
   columns: Column<T>[];
@@ -24,7 +27,13 @@ export function DataTable<T extends { id: string }>({
   empty?: string;
   /** Optional extra classes per row (e.g. red for overdue). */
   rowClassName?: (row: T) => string;
-  /** Optional click handler for a whole row (e.g. open the detail screen). */
+  /** Optional <tr> rendered after the body, e.g. a grand-total row. */
+  footer?: ReactNode;
+  /** id of the row currently expanded, if any. */
+  expandedRowId?: string | null;
+  /** Content shown in a full-width row under an expanded row. */
+  renderExpanded?: (row: T) => ReactNode;
+  /** Optional click handler for a whole row (e.g. open the detail screen, or toggle expansion). */
   onRowClick?: (row: T) => void;
 }) {
   return (
@@ -47,23 +56,35 @@ export function DataTable<T extends { id: string }>({
               </td>
             </tr>
           ) : (
-            rows.map((row) => (
-              <tr
-                key={row.id}
-                onClick={onRowClick ? () => onRowClick(row) : undefined}
-                className={`border-b border-slate-100 last:border-0 hover:bg-slate-50 ${
-                  onRowClick ? "cursor-pointer" : ""
-                } ${rowClassName ? rowClassName(row) : ""}`}
-              >
-                {columns.map((c) => (
-                  <td key={c.key} className={`px-4 py-3 text-slate-700 ${c.className ?? ""}`}>
-                    {c.render ? c.render(row) : String((row as Record<string, unknown>)[c.key] ?? "")}
-                  </td>
-                ))}
-              </tr>
-            ))
+            rows.map((row) => {
+              const expanded = renderExpanded && expandedRowId === row.id;
+              return (
+                <Fragment key={row.id}>
+                  <tr
+                    onClick={onRowClick ? () => onRowClick(row) : undefined}
+                    className={`border-b border-slate-100 last:border-0 hover:bg-slate-50 ${
+                      onRowClick ? "cursor-pointer" : ""
+                    } ${rowClassName ? rowClassName(row) : ""}`}
+                  >
+                    {columns.map((c) => (
+                      <td key={c.key} className={`px-4 py-3 text-slate-700 ${c.className ?? ""}`}>
+                        {c.render ? c.render(row) : String((row as Record<string, unknown>)[c.key] ?? "")}
+                      </td>
+                    ))}
+                  </tr>
+                  {expanded && (
+                    <tr className="border-b border-slate-100 bg-slate-50/60 last:border-0">
+                      <td colSpan={columns.length} className="px-4 py-4">
+                        {renderExpanded(row)}
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
+              );
+            })
           )}
         </tbody>
+        {footer && <tfoot>{footer}</tfoot>}
       </table>
     </div>
   );

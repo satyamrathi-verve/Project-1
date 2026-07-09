@@ -9,3 +9,15 @@
 body {
   @apply bg-slate-50 text-slate-800 antialiased;
 }
+
+/* Printable reports (Ageing, Statement, Invoice Print Preview…): hide the app
+   chrome and let the report fill the page. */
+@media print {
+  nav {
+    display: none;
+  }
+  main {
+    overflow: visible !important;
+    padding: 0 !important;
+  }
+}
