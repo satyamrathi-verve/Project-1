@@ -495,7 +495,7 @@ export default function EmailTemplateEditorPage() {
   if (!isConfigured) {
     return (
       <>
-        <PageHeader title="Auto Email Shoot Template" />
+        <PageHeader title="Reminder Template" />
         <NotConfigured />
       </>
     );
@@ -504,7 +504,7 @@ export default function EmailTemplateEditorPage() {
   if (loading) {
     return (
       <>
-        <PageHeader title="Auto Email Shoot Template" />
+        <PageHeader title="Reminder Template" />
         <p className="text-sm text-slate-500">Loading template…</p>
       </>
     );
@@ -515,7 +515,7 @@ export default function EmailTemplateEditorPage() {
   return (
     <>
       <PageHeader
-        title="Auto Email Shoot Template"
+        title="Reminder Template"
         subtitle="This is the template Auto Email Shoot uses for every reminder it sends."
         action={
           <Link
