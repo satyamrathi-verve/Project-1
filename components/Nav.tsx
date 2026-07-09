@@ -18,6 +18,7 @@ const LINKS: { href: string; label: string; built: boolean }[] = [
   { href: "/invoices", label: "Sales Invoices", built: true },
   { href: "/receipts", label: "Receipt Entry", built: true },
   { href: "/upload", label: "Upload Report", built: true },
+  { href: "/auto-email-shoot/template", label: "Reminder Template", built: true },
   { href: "/auto-email-shoot", label: "Auto Email Shoot", built: true },
   { href: "/reports/statement", label: "Customer Statement", built: true },
   { href: "/reports/ageing", label: "AR Ageing", built: true },
