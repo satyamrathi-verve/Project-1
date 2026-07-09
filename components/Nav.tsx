@@ -17,7 +17,7 @@ const LINKS: { href: string; label: string; built: boolean }[] = [
   { href: "/masters/gl", label: "GL Master", built: true },
   { href: "/invoices", label: "Sales Invoices", built: true },
   { href: "/receipts", label: "Receipt Entry", built: true },
-  { href: "/upload", label: "Upload Report", built: false },
+  { href: "/upload", label: "Upload Report", built: true },
   { href: "/reminders", label: "AR Followup", built: true },
   { href: "/reports/statement", label: "Customer Statement", built: false },
   { href: "/reports/ageing", label: "AR Ageing", built: true },
