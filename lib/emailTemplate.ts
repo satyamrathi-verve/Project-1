@@ -66,15 +66,15 @@ export function decomposeBody(raw: string): TemplateSections {
 export const DEFAULT_TEMPLATE: { subject: string; sections: TemplateSections } = {
   subject: "Payment Reminder – Outstanding Invoice(s)",
   sections: {
-    greeting: "Dear {{CustomerName}},",
+    greeting: "Dear [CustomerName],",
     body:
       "<p>We hope you are doing well.</p>" +
       "<p>This is a friendly reminder that the following invoice(s) remain outstanding according to our records.</p>" +
       "<p>Kindly arrange payment at your earliest convenience.</p>" +
       "<p>If payment has already been made, please disregard this email or share the payment details with us for reconciliation.</p>",
     closing: "Thank you for your continued business. We appreciate your prompt attention to this matter.",
-    signature: "Kind Regards,\nAccounts Receivable Team\n{{CompanyName}}",
-    footer: "This is a system-generated email from {{CompanyName}}. Please do not reply directly to this email.",
+    signature: "Kind Regards,\nAccounts Receivable Team\n[CompanyName]",
+    footer: "This is a system-generated email from [CompanyName]. Please do not reply directly to this email.",
   },
 };
 
@@ -84,31 +84,31 @@ export interface PlaceholderDef {
 }
 
 export const PLACEHOLDERS: PlaceholderDef[] = [
-  { token: "{{CustomerName}}", label: "Customer Name" },
-  { token: "{{CompanyName}}", label: "Company Name" },
-  { token: "{{CompanyAddress}}", label: "Company Address" },
-  { token: "{{CompanyWebsite}}", label: "Company Website" },
-  { token: "{{InvoiceNumber}}", label: "Invoice Number" },
-  { token: "{{InvoiceDate}}", label: "Invoice Date" },
-  { token: "{{DueDate}}", label: "Due Date" },
-  { token: "{{OutstandingAmount}}", label: "Outstanding Amount" },
-  { token: "{{DaysOverdue}}", label: "Days Overdue" },
-  { token: "{{Location}}", label: "Location" },
-  { token: "{{CurrentDate}}", label: "Current Date" },
-  { token: "{{CurrentTime}}", label: "Current Time" },
-  { token: "{{ARExecutive}}", label: "AR Executive (signed-in user)" },
-  { token: "{{CompanyEmail}}", label: "Company Email" },
-  { token: "{{CompanyPhone}}", label: "Company Phone" },
-  { token: "{{PaymentLink}}", label: "Payment Link" },
-  { token: "{{TotalReceivables}}", label: "Total Receivables (this send)" },
-  { token: "{{BankName}}", label: "Bank Name" },
-  { token: "{{BankAccountName}}", label: "Bank Account Name" },
-  { token: "{{BankAccountNumber}}", label: "Bank Account Number" },
-  { token: "{{IFSCOrSWIFT}}", label: "IFSC / SWIFT Code" },
-  { token: "{{UPIId}}", label: "UPI ID" },
+  { token: "[CustomerName]", label: "Customer Name" },
+  { token: "[CompanyName]", label: "Company Name" },
+  { token: "[CompanyAddress]", label: "Company Address" },
+  { token: "[CompanyWebsite]", label: "Company Website" },
+  { token: "[InvoiceNumber]", label: "Invoice Number" },
+  { token: "[InvoiceDate]", label: "Invoice Date" },
+  { token: "[DueDate]", label: "Due Date" },
+  { token: "[OutstandingAmount]", label: "Outstanding Amount" },
+  { token: "[DaysOverdue]", label: "Days Overdue" },
+  { token: "[Location]", label: "Location" },
+  { token: "[CurrentDate]", label: "Current Date" },
+  { token: "[CurrentTime]", label: "Current Time" },
+  { token: "[ARExecutive]", label: "AR Executive (signed-in user)" },
+  { token: "[CompanyEmail]", label: "Company Email" },
+  { token: "[CompanyPhone]", label: "Company Phone" },
+  { token: "[PaymentLink]", label: "Payment Link" },
+  { token: "[TotalReceivables]", label: "Total Receivables (this send)" },
+  { token: "[BankName]", label: "Bank Name" },
+  { token: "[BankAccountName]", label: "Bank Account Name" },
+  { token: "[BankAccountNumber]", label: "Bank Account Number" },
+  { token: "[IFSCOrSWIFT]", label: "IFSC / SWIFT Code" },
+  { token: "[UPIId]", label: "UPI ID" },
 ];
 
-const PLACEHOLDER_TOKENS = new Set(PLACEHOLDERS.map((p) => p.token));
+const PLACEHOLDER_NAMES = new Set(PLACEHOLDERS.map((p) => p.token.slice(1, -1)));
 
 export interface FillVars {
   CustomerName: string;
@@ -135,11 +135,15 @@ export interface FillVars {
   UPIId: string;
 }
 
-/** Fills both the new {{PascalCase}} placeholders and the legacy {snake_case} ones a template might still use. */
+/**
+ * Fills the current [PascalCase] placeholders, plus two older formats still found in
+ * templates saved before the syntax was simplified: {{PascalCase}} and the original
+ * seeded template's {snake_case}.
+ */
 export function fillPlaceholders(text: string, vars: FillVars): string {
   let out = text;
   for (const [key, value] of Object.entries(vars)) {
-    out = out.replaceAll(`{{${key}}}`, value);
+    out = out.replaceAll(`[${key}]`, value).replaceAll(`{{${key}}}`, value);
   }
   // Legacy single-brace placeholders from the original seeded template.
   out = out
@@ -150,10 +154,11 @@ export function fillPlaceholders(text: string, vars: FillVars): string {
   return out;
 }
 
-/** Finds {{Tokens}} in the composed template text that aren't in the known placeholder list — likely typos. */
+/** Finds [Tokens] (or older {{Tokens}}) in the composed template text that aren't in the known placeholder list — likely typos. */
 export function findUnknownPlaceholders(text: string): string[] {
-  const matches = text.match(/\{\{[A-Za-z0-9_]+\}\}/g) ?? [];
-  return [...new Set(matches.filter((m) => !PLACEHOLDER_TOKENS.has(m)))];
+  const matches = text.match(/\[[A-Za-z0-9_]+\]|\{\{[A-Za-z0-9_]+\}\}/g) ?? [];
+  const nameOf = (m: string) => (m.startsWith("[") ? m.slice(1, -1) : m.slice(2, -2));
+  return [...new Set(matches.filter((m) => !PLACEHOLDER_NAMES.has(nameOf(m))))];
 }
 
 export interface InvoiceLineItem {

@@ -746,10 +746,10 @@ export default function EmailTemplateEditorPage() {
                 <button
                   key={p.token}
                   onClick={() => insertPlaceholder(p.token)}
-                  title={p.label}
+                  title={p.token}
                   className="rounded-full border border-slate-300 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100"
                 >
-                  {p.token}
+                  {p.label}
                 </button>
               ))}
             </div>
