@@ -14,7 +14,7 @@ const LINKS: { href: string; label: string; built: boolean }[] = [
   { href: "/", label: "Home", built: true },
   { href: "/signin", label: "Sign In", built: true },
   { href: "/masters/customers", label: "Customer Master", built: true },
-  { href: "/masters/gl", label: "GL Master", built: false },
+  { href: "/masters/gl", label: "GL Master", built: true },
   { href: "/invoices", label: "Sales Invoices", built: true },
   { href: "/receipts", label: "Receipt Entry", built: true },
   { href: "/upload", label: "Upload Report", built: false },
