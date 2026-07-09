@@ -219,6 +219,7 @@ export default function CustomerStatementPage() {
             <div className="statement-sheet mx-auto max-w-3xl rounded-xl border border-slate-200 bg-white p-8 text-[13px] text-slate-800">
               <div className="flex items-start justify-between border-b border-slate-200 pb-5">
                 <div>
+                  <img src="/verve-logo.png" alt="Verve Advisory" className="mb-3 h-8 w-auto" />
                   <h1 className="text-xl font-extrabold text-brand">{company?.name ?? "—"}</h1>
                   {company?.address && <p className="mt-1 whitespace-pre-line text-slate-500">{company.address}</p>}
                   {company?.gstin && <p className="text-slate-500">GSTIN: {company.gstin}</p>}
