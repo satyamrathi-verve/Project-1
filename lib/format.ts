@@ -111,6 +111,12 @@ const GST_STATES: Record<string, string> = {
   "36": "Telangana", "37": "Andhra Pradesh", "38": "Ladakh",
 };
 
+// PAN is embedded in a GSTIN (chars 3–12), e.g. "27AAACV1234F1Z5" -> "AAACV1234F".
+export function panFromGstin(gstin: string | null): string | null {
+  if (!gstin || gstin.length < 12) return null;
+  return gstin.slice(2, 12);
+}
+
 // Place of Supply from a GSTIN, e.g. "27..." -> "Maharashtra (27)".
 export function placeOfSupply(gstin: string | null): string {
   if (!gstin || gstin.length < 2) return "—";
