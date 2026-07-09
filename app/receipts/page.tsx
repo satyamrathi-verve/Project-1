@@ -6,7 +6,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { DataTable, type Column } from "@/components/DataTable";
 import { NotConfigured } from "@/components/NotConfigured";
 import { FormField, inputClass } from "@/components/FormField";
-import { money, formatDate } from "@/lib/format";
+import { money, formatDate, formatInvoiceNo } from "@/lib/format";
 import type { ReceiptMode } from "@/lib/types";
 
 interface CustomerOption {
@@ -18,6 +18,7 @@ interface CustomerOption {
 interface OpenInvoiceRow {
   id: string;
   invoice_no: string;
+  invoice_date: string;
   due_date: string | null;
   total: number;
   outstanding: number;
@@ -84,14 +85,14 @@ export default function ReceiptEntryPage() {
     const { data: allocRows } = ids.length
       ? await supabase
           .from("receipt_allocations")
-          .select("receipt_id, invoices(invoice_no)")
+          .select("receipt_id, invoices(invoice_no, invoice_date)")
           .in("receipt_id", ids)
-      : { data: [] as { receipt_id: string; invoices: { invoice_no: string } | null }[] };
+      : { data: [] as { receipt_id: string; invoices: { invoice_no: string; invoice_date: string } | null }[] };
 
     const allocMap = new Map<string, string[]>();
-    (allocRows ?? []).forEach((a: { receipt_id: string; invoices: { invoice_no: string } | null }) => {
+    (allocRows ?? []).forEach((a: { receipt_id: string; invoices: { invoice_no: string; invoice_date: string } | null }) => {
       const list = allocMap.get(a.receipt_id) ?? [];
-      if (a.invoices?.invoice_no) list.push(a.invoices.invoice_no);
+      if (a.invoices) list.push(formatInvoiceNo(a.invoices.invoice_no, a.invoices.invoice_date));
       allocMap.set(a.receipt_id, list);
     });
 
@@ -120,12 +121,13 @@ export default function ReceiptEntryPage() {
     (async () => {
       const { data: invoices } = await supabase!
         .from("invoices")
-        .select("id, invoice_no, due_date, total, status")
+        .select("id, invoice_no, invoice_date, due_date, total, status")
         .eq("customer_id", customerId)
         .in("status", ["open", "partial", "overdue"])
         .order("due_date", { ascending: true });
 
-      const invRows = (invoices as unknown as { id: string; invoice_no: string; due_date: string | null; total: number }[]) ?? [];
+      const invRows =
+        (invoices as unknown as { id: string; invoice_no: string; invoice_date: string; due_date: string | null; total: number }[]) ?? [];
       const ids = invRows.map((i) => i.id);
 
       const { data: allocRows } = ids.length
@@ -141,6 +143,7 @@ export default function ReceiptEntryPage() {
         .map((i) => ({
           id: i.id,
           invoice_no: i.invoice_no,
+          invoice_date: i.invoice_date,
           due_date: i.due_date,
           total: i.total,
           outstanding: i.total - (allocatedByInvoice.get(i.id) ?? 0),
@@ -271,7 +274,7 @@ export default function ReceiptEntryPage() {
         <NotConfigured />
       ) : (
         <>
-          <div className="mb-8 rounded-xl border border-slate-200 bg-white p-6">
+          <div className="themed-surface mb-8 rounded-xl border border-line bg-surface p-6">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <FormField label="Receipt #">
                 <input className={inputClass} value={receiptNo} onChange={(e) => setReceiptNo(e.target.value)} />
@@ -326,44 +329,44 @@ export default function ReceiptEntryPage() {
             {customerId && (
               <div className="mt-6">
                 <div className="mb-2 flex items-center justify-between">
-                  <h3 className="text-sm font-semibold text-slate-700">Allocate against open invoices</h3>
+                  <h3 className="text-sm font-semibold text-ink">Allocate against open invoices</h3>
                   <button
                     type="button"
                     onClick={autoAllocate}
                     disabled={!amountNum || openInvoices.length === 0}
-                    className="rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-200 disabled:opacity-40"
+                    className="rounded-lg bg-surface2 px-3 py-1.5 text-xs font-medium text-muted hover:text-ink disabled:opacity-40"
                   >
                     Auto-allocate (oldest first)
                   </button>
                 </div>
 
                 {loadingInvoices ? (
-                  <div className="rounded-xl border border-slate-200 bg-slate-50 p-6 text-center text-sm text-slate-400">
+                  <div className="themed-surface rounded-xl border border-line bg-surface p-6 text-center text-sm text-faint">
                     Loading open invoices…
                   </div>
                 ) : openInvoices.length === 0 ? (
-                  <div className="rounded-xl border border-slate-200 bg-slate-50 p-6 text-center text-sm text-slate-400">
+                  <div className="themed-surface rounded-xl border border-line bg-surface p-6 text-center text-sm text-faint">
                     This customer has no open invoices.
                   </div>
                 ) : (
-                  <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+                  <div className="themed-surface overflow-hidden rounded-xl border border-line bg-surface">
                     <table className="w-full text-sm">
                       <thead>
-                        <tr className="border-b border-slate-200 bg-slate-50 text-left">
-                          <th className="px-4 py-2 font-semibold text-slate-600">Invoice #</th>
-                          <th className="px-4 py-2 font-semibold text-slate-600">Due</th>
-                          <th className="px-4 py-2 text-right font-semibold text-slate-600">Total</th>
-                          <th className="px-4 py-2 text-right font-semibold text-slate-600">Outstanding</th>
-                          <th className="px-4 py-2 text-right font-semibold text-slate-600">Allocate</th>
+                        <tr className="border-b border-line bg-surface2 text-left">
+                          <th className="px-4 py-2 font-semibold text-muted">Invoice #</th>
+                          <th className="px-4 py-2 font-semibold text-muted">Due</th>
+                          <th className="px-4 py-2 text-right font-semibold text-muted">Total</th>
+                          <th className="px-4 py-2 text-right font-semibold text-muted">Outstanding</th>
+                          <th className="px-4 py-2 text-right font-semibold text-muted">Allocate</th>
                         </tr>
                       </thead>
                       <tbody>
                         {openInvoices.map((inv) => (
-                          <tr key={inv.id} className="border-b border-slate-100 last:border-0">
-                            <td className="px-4 py-2 text-slate-700">{inv.invoice_no}</td>
-                            <td className="px-4 py-2 text-slate-700">{formatDate(inv.due_date)}</td>
-                            <td className="px-4 py-2 text-right tabular-nums text-slate-700">{money(inv.total)}</td>
-                            <td className="px-4 py-2 text-right tabular-nums text-slate-700">{money(inv.outstanding)}</td>
+                          <tr key={inv.id} className="border-b border-line last:border-0">
+                            <td className="px-4 py-2 text-ink">{formatInvoiceNo(inv.invoice_no, inv.invoice_date)}</td>
+                            <td className="px-4 py-2 text-ink">{formatDate(inv.due_date)}</td>
+                            <td className="px-4 py-2 text-right tabular-nums text-ink">{money(inv.total)}</td>
+                            <td className="px-4 py-2 text-right tabular-nums text-ink">{money(inv.outstanding)}</td>
                             <td className="px-4 py-2 text-right">
                               <input
                                 type="number"
@@ -381,7 +384,7 @@ export default function ReceiptEntryPage() {
                   </div>
                 )}
 
-                <p className={`mt-2 text-right text-sm ${unallocated < -0.005 ? "text-red-600" : "text-slate-500"}`}>
+                <p className={`mt-2 text-right text-sm ${unallocated < -0.005 ? "text-red-600" : "text-muted"}`}>
                   Allocated {money(allocatedTotal)} of {money(amountNum)} —{" "}
                   {unallocated >= 0 ? "unallocated" : "over-allocated"}: {money(Math.abs(unallocated))}
                 </p>
@@ -389,10 +392,12 @@ export default function ReceiptEntryPage() {
             )}
 
             {error && (
-              <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>
+              <div className="mt-4 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-600">
+                {error}
+              </div>
             )}
             {success && (
-              <div className="mt-4 rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-700">
+              <div className="mt-4 rounded-lg border border-green-500/30 bg-green-500/10 p-3 text-sm text-green-600">
                 {success}
               </div>
             )}
@@ -402,7 +407,7 @@ export default function ReceiptEntryPage() {
                 type="button"
                 onClick={handleSave}
                 disabled={saving}
-                className="rounded-lg bg-brand px-5 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50"
+                className="rounded-lg bg-brand px-5 py-2 text-sm font-semibold text-brandink hover:bg-brand-dark disabled:opacity-50"
               >
                 {saving ? "Saving…" : "Save receipt"}
               </button>
@@ -411,7 +416,7 @@ export default function ReceiptEntryPage() {
 
           <PageHeader title="Recent receipts" />
           {loadingReceipts ? (
-            <div className="rounded-xl border border-slate-200 bg-white p-10 text-center text-slate-400">
+            <div className="themed-surface rounded-xl border border-line bg-surface p-10 text-center text-faint">
               Loading receipts…
             </div>
           ) : (
