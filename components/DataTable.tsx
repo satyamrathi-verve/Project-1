@@ -6,11 +6,14 @@ export interface Column<T> {
   /** Optional custom cell; defaults to String(row[key]). */
   render?: (row: T) => ReactNode;
   className?: string;
+  /** Set to make this column's header clickable for sorting (requires sortKey/onSort on DataTable). */
+  sortable?: boolean;
 }
 
 /*
   A plain, reusable table. Copy this pattern for every list screen (invoices,
   receipts, GL accounts…). Pass your columns and rows; it handles the empty state.
+  Pass sortKey/sortDir/onSort to make `sortable` columns clickable.
 */
 export function DataTable<T extends { id: string }>({
   columns,
@@ -22,6 +25,9 @@ export function DataTable<T extends { id: string }>({
   renderExpanded,
   onRowClick,
   caption,
+  sortKey,
+  sortDir,
+  onSort,
 }: {
   columns: Column<T>[];
   rows: T[];
@@ -38,16 +44,27 @@ export function DataTable<T extends { id: string }>({
   onRowClick?: (row: T) => void;
   /** Visually-hidden table description for screen readers. */
   caption?: string;
+  sortKey?: string;
+  sortDir?: "asc" | "desc";
+  onSort?: (key: string) => void;
 }) {
   return (
-    <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+    <div className="overflow-x-auto overflow-y-hidden rounded-xl border border-slate-200 bg-white">
       <table className="w-full text-sm">
         {caption && <caption className="sr-only">{caption}</caption>}
         <thead>
           <tr className="border-b border-slate-200 bg-slate-50 text-left">
             {columns.map((c) => (
-              <th key={c.key} scope="col" className={`px-4 py-3 font-semibold text-slate-600 ${c.className ?? ""}`}>
+              <th
+                key={c.key}
+                scope="col"
+                onClick={c.sortable && onSort ? () => onSort(c.key) : undefined}
+                className={`px-4 py-3 font-semibold text-slate-600 ${c.className ?? ""} ${
+                  c.sortable && onSort ? "cursor-pointer select-none whitespace-nowrap hover:text-slate-900" : ""
+                }`}
+              >
                 {c.header}
+                {c.sortable && sortKey === c.key && <span className="ml-1">{sortDir === "asc" ? "▲" : "▼"}</span>}
               </th>
             ))}
           </tr>

@@ -17,7 +17,7 @@ const LINKS: { href: string; label: string; built: boolean }[] = [
   { href: "/invoices", label: "Sales Invoices", built: true },
   { href: "/receipts", label: "Receipt Entry", built: false },
   { href: "/upload", label: "Upload Report", built: false },
-  { href: "/reminders", label: "AR Followup", built: false },
+  { href: "/reminders", label: "AR Followup", built: true },
   { href: "/reports/statement", label: "Customer Statement", built: false },
   { href: "/reports/ageing", label: "AR Ageing", built: true },
   { href: "/cashflow", label: "Cashflow Projection", built: true },
