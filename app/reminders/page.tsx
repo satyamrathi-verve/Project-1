@@ -321,6 +321,20 @@ export default function AutoEmailShootPage() {
         </span>
       ),
     },
+    {
+      key: "history",
+      header: "",
+      render: (row) => (
+        <Link
+          href={`/reminders/history/${row.id}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="rounded-lg border border-slate-300 px-2.5 py-1 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-50"
+        >
+          History
+        </Link>
+      ),
+    },
   ];
 
   const sentColumns: Column<ReminderLog>[] = [
