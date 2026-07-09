@@ -30,6 +30,8 @@ export function DataTable<T extends { id: string }>({
   sortKey,
   sortDir,
   onSort,
+  loading = false,
+  skeletonRows = 5,
 }: {
   columns: Column<T>[];
   rows: T[];
@@ -49,6 +51,10 @@ export function DataTable<T extends { id: string }>({
   sortKey?: string;
   sortDir?: "asc" | "desc";
   onSort?: (key: string) => void;
+  /** Show shimmering placeholder rows instead of data/empty state. */
+  loading?: boolean;
+  /** How many placeholder rows to show while loading. */
+  skeletonRows?: number;
 }) {
   const tableId = useId();
   const rowRefs = useRef<Record<string, HTMLTableRowElement | null>>({});
@@ -77,7 +83,7 @@ export function DataTable<T extends { id: string }>({
                 key={c.key}
                 scope="col"
                 onClick={c.sortable && onSort ? () => onSort(c.key) : undefined}
-                className={`px-4 py-3 font-semibold text-muted ${c.className ?? ""} ${
+                className={`sticky top-0 z-10 bg-surface2 px-4 py-3 font-semibold text-muted ${c.className ?? ""} ${
                   c.sortable && onSort ? "cursor-pointer select-none whitespace-nowrap hover:text-ink" : ""
                 }`}
               >
@@ -93,7 +99,17 @@ export function DataTable<T extends { id: string }>({
             focusedRowId.current = el?.getAttribute("data-row-id") ?? null;
           }}
         >
-          {rows.length === 0 ? (
+          {loading ? (
+            Array.from({ length: skeletonRows }).map((_, i) => (
+              <tr key={`skeleton-${i}`} className="border-b border-line last:border-0">
+                {columns.map((c) => (
+                  <td key={c.key} className="px-4 py-3">
+                    <div className="h-4 w-full max-w-[10rem] animate-pulse rounded bg-surface2" />
+                  </td>
+                ))}
+              </tr>
+            ))
+          ) : rows.length === 0 ? (
             <tr>
               <td colSpan={columns.length} className="px-4 py-10 text-center text-faint">
                 {empty}

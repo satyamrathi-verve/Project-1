@@ -4,6 +4,8 @@ import "./globals.css";
 import { Nav } from "@/components/Nav";
 import { AuthGate } from "@/components/AuthGate";
 import { ReminderSchedulerRunner } from "@/components/ReminderSchedulerRunner";
+import { Toaster } from "@/components/Toast";
+import { CommandPalette } from "@/components/CommandPalette";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" });
 const fraunces = Fraunces({ subsets: ["latin"], variable: "--font-fraunces", display: "swap", weight: ["500", "600", "700"] });
@@ -27,6 +29,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="font-sans">
         <AuthGate>
           <ReminderSchedulerRunner />
+          <Toaster />
+          <CommandPalette />
           <div className="flex h-screen">
             <Nav />
             <main className="flex-1 overflow-y-auto bg-canvas p-8">{children}</main>

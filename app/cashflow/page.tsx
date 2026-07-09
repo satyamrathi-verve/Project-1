@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase, isConfigured } from "@/lib/supabase";
 import { PageHeader } from "@/components/PageHeader";
 import { DataTable, type Column } from "@/components/DataTable";
 import { NotConfigured } from "@/components/NotConfigured";
 import { inputClass } from "@/components/FormField";
+import { toast } from "@/components/Toast";
 import { money, isOverdue } from "@/lib/format";
+import { exportToCsv } from "@/lib/exportCsv";
 
 // One open/partial/overdue invoice, with enough to compute what's still owed on it.
 interface OpenInvoiceRow {
@@ -33,6 +35,9 @@ interface ProjectionRow {
 }
 
 type Grouping = "week" | "month";
+type StatusFilter = "all" | "overdue" | "ontime";
+
+const GROUPING_STORAGE_KEY = "ar-cashflow-grouping";
 
 // Monday-start ISO week key, e.g. "2026-07-06".
 function weekKey(d: Date): string {
@@ -71,6 +76,41 @@ interface BucketRow {
   invoices: ProjectionRow[];
 }
 
+function StatCard({
+  label,
+  value,
+  hint,
+  accent,
+  live,
+}: {
+  label: string;
+  value: string;
+  hint?: string;
+  accent: "brand" | "red" | "green" | "neutral";
+  /** Announce value changes to screen readers (use on figures that update as the team edits data). */
+  live?: boolean;
+}) {
+  const accentBorder: Record<typeof accent, string> = {
+    brand: "border-l-brand",
+    red: "border-l-red-500",
+    green: "border-l-green-500",
+    neutral: "border-l-line",
+  };
+  return (
+    <div className={`themed-surface rounded-xl border border-line border-l-4 bg-surface p-4 ${accentBorder[accent]}`}>
+      <p className="text-xs font-semibold uppercase tracking-wide text-muted">{label}</p>
+      <p
+        className="mt-1 text-2xl font-bold tabular-nums text-ink"
+        aria-live={live ? "polite" : undefined}
+        aria-atomic={live ? "true" : undefined}
+      >
+        {value}
+      </p>
+      {hint && <p className="mt-0.5 text-xs text-faint">{hint}</p>}
+    </div>
+  );
+}
+
 export default function CashflowProjectionPage() {
   const [invoices, setInvoices] = useState<OpenInvoiceRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -80,6 +120,29 @@ export default function CashflowProjectionPage() {
   const [overrides, setOverrides] = useState<Record<string, { date?: string; amount?: number }>>({});
   // Which period row is currently expanded (only one at a time), if any.
   const [expandedBucketId, setExpandedBucketId] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const focusValueRef = useRef<Record<string, number>>({});
+
+  // Remember the last grouping choice across visits.
+  useEffect(() => {
+    const saved = localStorage.getItem(GROUPING_STORAGE_KEY);
+    if (saved === "week" || saved === "month") setGrouping(saved);
+  }, []);
+
+  // "/" jumps to the search box, like Linear/GitHub — unless already typing somewhere.
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      const tag = (document.activeElement as HTMLElement | null)?.tagName;
+      if (e.key === "/" && tag !== "INPUT" && tag !== "TEXTAREA") {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
 
   useEffect(() => {
     if (!supabase) {
@@ -116,9 +179,19 @@ export default function CashflowProjectionPage() {
     });
   }, [invoices, overrides]);
 
+  const filteredProjection: ProjectionRow[] = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return projection.filter((r) => {
+      const overdue = isOverdue(r.status, r.dueDate);
+      const matchesSearch = !q || r.customer.toLowerCase().includes(q) || r.invoiceNo.toLowerCase().includes(q);
+      const matchesStatus = statusFilter === "all" || (statusFilter === "overdue" ? overdue : !overdue);
+      return matchesSearch && matchesStatus;
+    });
+  }, [projection, search, statusFilter]);
+
   const buckets: BucketRow[] = useMemo(() => {
     const map = new Map<string, ProjectionRow[]>();
-    for (const row of projection) {
+    for (const row of filteredProjection) {
       if (!row.expectedDate) continue;
       const key = grouping === "week" ? weekKey(new Date(row.expectedDate)) : monthKey(new Date(row.expectedDate));
       const existing = map.get(key) ?? [];
@@ -135,19 +208,49 @@ export default function CashflowProjectionPage() {
         count: rows.length,
         invoices: rows,
       }));
-  }, [projection, grouping]);
+  }, [filteredProjection, grouping]);
 
   const totalExpected = buckets.reduce((sum, b) => sum + b.amount, 0);
   const maxBucket = Math.max(1, ...buckets.map((b) => b.amount));
+  const overdueAmount = useMemo(
+    () => filteredProjection.filter((r) => isOverdue(r.status, r.dueDate)).reduce((sum, r) => sum + r.expectedAmount, 0),
+    [filteredProjection]
+  );
+  const thisWeekAmount = useMemo(() => {
+    const key = weekKey(new Date());
+    return filteredProjection
+      .filter((r) => r.expectedDate && weekKey(new Date(r.expectedDate)) === key)
+      .reduce((sum, r) => sum + r.expectedAmount, 0);
+  }, [filteredProjection]);
 
   function setOverride(id: string, patch: { date?: string; amount?: number }) {
     setOverrides((prev) => ({ ...prev, [id]: { ...prev[id], ...patch } }));
+  }
+
+  function resetOverride(id: string, invoiceNo: string) {
+    setOverrides((prev) => {
+      if (!(id in prev)) return prev;
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+    toast(`${invoiceNo} reset to its default due date and outstanding amount`, { variant: "info" });
   }
 
   // Switching how periods are grouped makes the old expanded period key meaningless.
   function changeGrouping(g: Grouping) {
     setGrouping(g);
     setExpandedBucketId(null);
+    localStorage.setItem(GROUPING_STORAGE_KEY, g);
+  }
+
+  function handleExportCsv() {
+    exportToCsv(
+      `cashflow-projection-${grouping}-${new Date().toISOString().slice(0, 10)}.csv`,
+      [grouping === "week" ? "Week" : "Month", "Invoices", "Expected Inflow (INR)"],
+      buckets.map((b) => [b.label, b.count, b.amount.toFixed(2)])
+    );
+    toast("Exported the current summary to CSV", { variant: "success" });
   }
 
   const bucketColumns: Column<BucketRow>[] = [
@@ -174,9 +277,34 @@ export default function CashflowProjectionPage() {
 
   return (
     <div>
+      <style>{`
+        @media print {
+          nav { display: none !important; }
+          main { padding: 0 !important; overflow: visible !important; }
+          body { background: #fff !important; }
+          .no-print { display: none !important; }
+        }
+      `}</style>
+
       <PageHeader
         title="Cashflow Projection"
         subtitle="Expected collections from open invoices, grouped by when the money should land. Click a period to see (and adjust) its invoices."
+        action={
+          <div className="no-print flex gap-2">
+            <button
+              onClick={handleExportCsv}
+              className="rounded-lg border border-line bg-surface px-3 py-2 text-sm font-semibold text-ink hover:bg-surface2"
+            >
+              ⬇ Export CSV
+            </button>
+            <button
+              onClick={() => window.print()}
+              className="rounded-lg bg-brand px-3 py-2 text-sm font-semibold text-brandink hover:bg-brand-dark"
+            >
+              🖨 Print
+            </button>
+          </div>
+        }
       />
 
       {!isConfigured ? (
@@ -185,15 +313,47 @@ export default function CashflowProjectionPage() {
         <div role="alert" className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-600">
           Could not load invoices: {error}
         </div>
-      ) : loading ? (
-        <div aria-live="polite" className="themed-surface rounded-xl border border-line bg-surface p-10 text-center text-faint">
-          Loading open invoices…
-        </div>
       ) : (
         <>
-          <section className="mb-4">
-            <h3 className="mb-2 text-sm font-semibold text-muted">Period selection</h3>
+          <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
+            <StatCard label="Total Expected" value={loading ? "—" : money(totalExpected)} accent="brand" live />
+            <StatCard label="Due This Week" value={loading ? "—" : money(thisWeekAmount)} accent="green" live />
+            <StatCard label="Overdue Amount" value={loading ? "—" : money(overdueAmount)} accent="red" live />
+            <StatCard
+              label="Open Invoices"
+              value={loading ? "—" : String(filteredProjection.length)}
+              hint={statusFilter !== "all" || search ? "matching filters" : undefined}
+              accent="neutral"
+            />
+          </div>
+
+          <section className="no-print mb-4">
+            <h3 className="mb-2 text-sm font-semibold text-muted">Filters &amp; period</h3>
             <div className="flex flex-wrap items-center gap-3">
+              <input
+                ref={searchInputRef}
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search customer or invoice # ( / )"
+                aria-label="Search by customer or invoice number"
+                className={`${inputClass} w-64`}
+              />
+              <div role="radiogroup" aria-label="Filter by status" className="flex gap-1">
+                {(["all", "overdue", "ontime"] as StatusFilter[]).map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    role="radio"
+                    aria-checked={statusFilter === s}
+                    onClick={() => setStatusFilter(s)}
+                    className={`rounded-lg px-3 py-1.5 text-sm font-medium capitalize transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand ${
+                      statusFilter === s ? "bg-brand text-brandink" : "bg-surface2 text-muted hover:bg-surface2/70"
+                    }`}
+                  >
+                    {s === "ontime" ? "On time" : s}
+                  </button>
+                ))}
+              </div>
               <div role="radiogroup" aria-label="Group projection by" className="flex gap-1">
                 {(["week", "month"] as Grouping[]).map((g) => (
                   <button
@@ -222,18 +382,22 @@ export default function CashflowProjectionPage() {
                   </button>
                 ))}
               </div>
-              <span className="ml-auto text-sm text-muted">
-                Total expected:{" "}
-                <span aria-live="polite" aria-atomic="true" className="font-semibold text-ink">
-                  {money(totalExpected)}
-                </span>
-              </span>
             </div>
           </section>
 
           <section aria-label="Expected inflow chart" className="themed-surface mb-6 rounded-xl border border-line bg-surface p-4">
-            {buckets.length === 0 ? (
-              <p className="text-sm text-faint">No open invoices to project.</p>
+            {loading ? (
+              <div className="flex h-32 items-end gap-3">
+                {Array.from({ length: 10 }).map((_, i) => (
+                  <div
+                    key={i}
+                    className="w-20 flex-none animate-pulse rounded-t bg-surface2"
+                    style={{ height: `${30 + ((i * 17) % 60)}%` }}
+                  />
+                ))}
+              </div>
+            ) : buckets.length === 0 ? (
+              <p className="text-sm text-faint">No open invoices match the current filters.</p>
             ) : (
               <div className="overflow-x-auto">
                 <div
@@ -270,7 +434,8 @@ export default function CashflowProjectionPage() {
             <DataTable
               columns={bucketColumns}
               rows={buckets}
-              empty="No open invoices to project."
+              loading={loading}
+              empty="No open invoices match the current filters."
               caption={`Expected cash inflow grouped by ${grouping}, with invoice count and expected amount per period. Click a row to expand its invoices.`}
               expandedRowId={expandedBucketId}
               onRowClick={(b) => setExpandedBucketId((prev) => (prev === b.id ? null : b.id))}
@@ -285,11 +450,15 @@ export default function CashflowProjectionPage() {
                         <th scope="col" className="px-3 py-2 text-right font-semibold">Outstanding (INR)</th>
                         <th scope="col" className="px-3 py-2 font-semibold">Expected date</th>
                         <th scope="col" className="px-3 py-2 text-right font-semibold">Expected amount (INR)</th>
+                        <th scope="col" className="no-print px-3 py-2 font-semibold">
+                          <span className="sr-only">Actions</span>
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
                       {b.invoices.map((r) => {
                         const overdue = isOverdue(r.status, r.dueDate);
+                        const isEdited = Boolean(overrides[r.id]);
                         return (
                           <tr key={r.id} className={`border-t border-line ${overdue ? "bg-red-500/10" : ""}`}>
                             <td className="px-3 py-2 font-medium text-ink">
@@ -327,9 +496,35 @@ export default function CashflowProjectionPage() {
                                 className={`${inputClass} w-28 py-1 text-right text-xs tabular-nums`}
                                 value={r.expectedAmount}
                                 onClick={(e) => e.stopPropagation()}
+                                onFocus={() => {
+                                  focusValueRef.current[r.id] = r.expectedAmount;
+                                }}
                                 onChange={(e) => setOverride(r.id, { amount: Number(e.target.value) })}
+                                onBlur={() => {
+                                  const before = focusValueRef.current[r.id];
+                                  if (before !== undefined && before !== r.expectedAmount) {
+                                    toast(`${r.invoiceNo} expected amount updated to ${money(r.expectedAmount)}`, {
+                                      variant: "success",
+                                      actionLabel: "Undo",
+                                      onAction: () => resetOverride(r.id, r.invoiceNo),
+                                    });
+                                  }
+                                }}
                                 onWheel={(e) => e.currentTarget.blur()}
                               />
+                            </td>
+                            <td className="no-print px-3 py-2 text-right">
+                              {isEdited && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    resetOverride(r.id, r.invoiceNo);
+                                  }}
+                                  className="text-[11px] font-medium text-muted underline underline-offset-2 hover:text-ink"
+                                >
+                                  Reset
+                                </button>
+                              )}
                             </td>
                           </tr>
                         );
