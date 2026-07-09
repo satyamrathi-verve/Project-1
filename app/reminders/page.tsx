@@ -180,6 +180,12 @@ export default function AutoEmailShootPage() {
   const totalPages = Math.max(1, Math.ceil(sortedRows.length / pageSize));
   const pagedRows = sortedRows.slice((page - 1) * pageSize, page * pageSize);
 
+  // Sum across every filtered row, not just the current page, so pagination never changes the total.
+  const totalOutstanding = useMemo(
+    () => sortedRows.reduce((sum, row) => sum + row.outstanding, 0),
+    [sortedRows]
+  );
+
   function handleSort(key: string) {
     if (sortKey === key) {
       setSortDir((d) => (d === "asc" ? "desc" : "asc"));
@@ -453,6 +459,15 @@ export default function AutoEmailShootPage() {
             sortDir={sortDir}
             onSort={handleSort}
             empty="No invoices match the current filters."
+            footer={
+              <tr className="border-t-2 border-slate-300 bg-slate-50 font-semibold text-slate-900">
+                <td colSpan={5} className="px-4 py-3 text-right">
+                  Total Outstanding
+                </td>
+                <td className="px-4 py-3">{money(totalOutstanding)}</td>
+                <td colSpan={3} className="px-4 py-3" />
+              </tr>
+            }
           />
           {sortedRows.length > 0 && (
             <Pagination page={page} pageSize={pageSize} total={sortedRows.length} onPageChange={setPage} onPageSizeChange={setPageSize} />
