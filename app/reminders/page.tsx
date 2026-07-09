@@ -250,12 +250,12 @@ export default function AutoEmailShootPage() {
 
   const exportColumns: ExportColumn<OverdueRow>[] = [
     { header: "Invoice #", value: (r) => r.invoice_no },
-    { header: "Customer", value: (r) => r.customer_name },
+    { header: "Customer Name", value: (r) => r.customer_name },
     { header: "Email", value: (r) => r.customer_email ?? "" },
     { header: "Location", value: (r) => r.location },
-    { header: "Outstanding", value: (r) => r.outstanding.toFixed(2) },
+    { header: "Receivables", value: (r) => r.outstanding.toFixed(2) },
     { header: "Days Overdue", value: (r) => r.days_overdue },
-    { header: "Aging Bucket", value: (r) => r.aging },
+    { header: "Ageing Bucket", value: (r) => r.aging },
   ];
 
   function handleExport(kind: "csv" | "excel" | "pdf") {
@@ -278,12 +278,13 @@ export default function AutoEmailShootPage() {
           className="h-4 w-4 rounded border-slate-300 text-brand focus:ring-brand"
         />
       ),
-      className: "w-10",
+      className: "w-10 text-center align-middle",
     },
     {
       key: "invoice_no",
       header: "Invoice #",
       sortable: true,
+      className: "text-left align-middle whitespace-nowrap",
       render: (row) => (
         <Link
           href={`/invoices/${row.id}`}
@@ -295,19 +296,26 @@ export default function AutoEmailShootPage() {
         </Link>
       ),
     },
-    { key: "customer_name", header: "Customer", sortable: true },
-    { key: "location", header: "Location" },
-    { key: "customer_email", header: "Email", render: (row) => row.customer_email ?? "—" },
+    { key: "customer_name", header: "Customer Name", sortable: true, className: "text-left align-middle" },
+    { key: "location", header: "Location", className: "text-left align-middle whitespace-nowrap" },
+    {
+      key: "customer_email",
+      header: "Email",
+      className: "text-left align-middle",
+      render: (row) => row.customer_email ?? "—",
+    },
     {
       key: "outstanding",
-      header: "Outstanding",
+      header: "Receivables",
       sortable: true,
+      className: "text-right align-middle whitespace-nowrap",
       render: (row) => money(row.outstanding),
     },
     {
       key: "days_overdue",
-      header: "Days overdue",
+      header: "Days Overdue",
       sortable: true,
+      className: "text-right align-middle whitespace-nowrap",
       render: (row) => (
         <span className={row.days_overdue > 0 ? "font-medium text-red-600" : "text-slate-500"}>
           {row.days_overdue > 0 ? row.days_overdue : "—"}
@@ -316,7 +324,8 @@ export default function AutoEmailShootPage() {
     },
     {
       key: "aging",
-      header: "Aging",
+      header: "Ageing",
+      className: "text-left align-middle whitespace-nowrap",
       render: (row) => (
         <span
           className={`rounded-full px-2 py-0.5 text-xs font-medium ${
@@ -330,6 +339,7 @@ export default function AutoEmailShootPage() {
     {
       key: "history",
       header: "",
+      className: "text-center align-middle whitespace-nowrap",
       render: (row) => (
         <Link
           href={`/reminders/history/${row.id}`}
@@ -377,7 +387,7 @@ export default function AutoEmailShootPage() {
     <>
       <PageHeader
         title="AR Followup — Auto Email Shoot"
-        subtitle="Chase overdue customers, filter by location or aging, and export what you see."
+        subtitle="Chase overdue customers, filter by location or ageing, and export what you see."
         action={
           <div className="flex items-center gap-2">
             <div ref={exportRef} className="relative">
@@ -435,7 +445,7 @@ export default function AutoEmailShootPage() {
           />
         </label>
         <MultiSelect label="Location" options={locationOptions} selected={locationFilter} onChange={setLocationFilter} />
-        <MultiSelect label="Aging" options={AGING_BUCKETS} selected={agingFilter} onChange={setAgingFilter} />
+        <MultiSelect label="Ageing" options={AGING_BUCKETS} selected={agingFilter} onChange={setAgingFilter} />
       </div>
 
       {loading ? (
@@ -461,10 +471,10 @@ export default function AutoEmailShootPage() {
             empty="No invoices match the current filters."
             footer={
               <tr className="border-t-2 border-slate-300 bg-slate-50 font-semibold text-slate-900">
-                <td colSpan={5} className="px-4 py-3 text-right">
-                  Total Receivable
+                <td colSpan={5} className="px-4 py-3 text-right align-middle whitespace-nowrap">
+                  Total Receivables
                 </td>
-                <td className="px-4 py-3">{money(totalOutstanding)}</td>
+                <td className="px-4 py-3 text-right align-middle whitespace-nowrap">{money(totalOutstanding)}</td>
                 <td colSpan={3} className="px-4 py-3" />
               </tr>
             }

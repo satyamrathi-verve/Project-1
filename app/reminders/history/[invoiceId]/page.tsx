@@ -152,11 +152,11 @@ export default function InvoiceReminderHistoryPage() {
   const exportColumns: ExportColumn<HistoryRow>[] = [
     { header: "Sent Date", value: (r) => new Date(r.sent_at).toLocaleDateString() },
     { header: "Sent Time", value: (r) => new Date(r.sent_at).toLocaleTimeString() },
-    { header: "Customer", value: () => customer?.name ?? "" },
+    { header: "Customer Name", value: () => customer?.name ?? "" },
     { header: "Invoice #", value: () => invoice?.invoice_no ?? "" },
     { header: "Invoice Date", value: () => (invoice?.invoice_date ? new Date(invoice.invoice_date).toLocaleDateString() : "") },
     { header: "Due Date", value: () => (invoice?.due_date ? new Date(invoice.due_date).toLocaleDateString() : "") },
-    { header: "Outstanding", value: () => outstanding.toFixed(2) },
+    { header: "Receivables", value: () => outstanding.toFixed(2) },
     { header: "Recipient Email", value: (r) => r.recipient },
     { header: "Status", value: (r) => r.status },
     { header: "Sent By", value: (r) => r.sent_by },
@@ -182,7 +182,7 @@ export default function InvoiceReminderHistoryPage() {
         </span>
       ),
     },
-    { key: "customer_name", header: "Customer", render: () => customer?.name ?? "—" },
+    { key: "customer_name", header: "Customer Name", render: () => customer?.name ?? "—" },
     { key: "invoice_no", header: "Invoice #", render: () => invoice?.invoice_no ?? "—" },
     {
       key: "invoice_date",
@@ -194,7 +194,7 @@ export default function InvoiceReminderHistoryPage() {
       header: "Due Date",
       render: () => (invoice?.due_date ? new Date(invoice.due_date).toLocaleDateString() : "—"),
     },
-    { key: "outstanding", header: "Outstanding", render: () => money(outstanding) },
+    { key: "outstanding", header: "Receivables", render: () => money(outstanding) },
     { key: "recipient", header: "Recipient Email" },
     {
       key: "status",

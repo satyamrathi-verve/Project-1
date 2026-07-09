@@ -231,11 +231,11 @@ export default function ReminderHistoryPage() {
   const exportColumns: ExportColumn<HistoryRow>[] = [
     { header: "Sent Date", value: (r) => new Date(r.sent_at).toLocaleDateString() },
     { header: "Sent Time", value: (r) => new Date(r.sent_at).toLocaleTimeString() },
-    { header: "Customer", value: (r) => r.customer_name },
+    { header: "Customer Name", value: (r) => r.customer_name },
     { header: "Invoice #", value: (r) => r.invoice_no },
     { header: "Invoice Date", value: (r) => (r.invoice_date ? new Date(r.invoice_date).toLocaleDateString() : "") },
     { header: "Due Date", value: (r) => (r.due_date ? new Date(r.due_date).toLocaleDateString() : "") },
-    { header: "Outstanding", value: (r) => r.outstanding.toFixed(2) },
+    { header: "Receivables", value: (r) => r.outstanding.toFixed(2) },
     { header: "Recipient Email", value: (r) => r.recipient },
     { header: "Status", value: (r) => r.status },
     { header: "Sent By", value: (r) => r.sent_by },
@@ -262,7 +262,7 @@ export default function ReminderHistoryPage() {
         </span>
       ),
     },
-    { key: "customer_name", header: "Customer", sortable: true },
+    { key: "customer_name", header: "Customer Name", sortable: true },
     { key: "invoice_no", header: "Invoice #", sortable: true },
     {
       key: "invoice_date",
@@ -274,7 +274,7 @@ export default function ReminderHistoryPage() {
       header: "Due Date",
       render: (row) => (row.due_date ? new Date(row.due_date).toLocaleDateString() : "—"),
     },
-    { key: "outstanding", header: "Outstanding", render: (row) => money(row.outstanding) },
+    { key: "outstanding", header: "Receivables", render: (row) => money(row.outstanding) },
     { key: "recipient", header: "Recipient Email" },
     {
       key: "status",
@@ -366,7 +366,7 @@ export default function ReminderHistoryPage() {
           <span className="text-xs font-medium uppercase tracking-wide text-slate-500">To</span>
           <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className={inputClass} />
         </label>
-        <MultiSelect label="Customer" options={customerOptions} selected={customerFilter} onChange={setCustomerFilter} />
+        <MultiSelect label="Customer Name" options={customerOptions} selected={customerFilter} onChange={setCustomerFilter} />
         <MultiSelect label="Invoice #" options={invoiceOptions} selected={invoiceFilter} onChange={setInvoiceFilter} />
         <MultiSelect label="Status" options={statusOptions} selected={statusFilter} onChange={setStatusFilter} />
       </div>
