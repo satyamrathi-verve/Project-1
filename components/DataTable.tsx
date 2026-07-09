@@ -78,6 +78,7 @@ export function DataTable<T extends { id: string }>({
                     }
                     role={onRowClick ? "button" : undefined}
                     tabIndex={onRowClick ? 0 : undefined}
+                    aria-expanded={renderExpanded ? expanded : undefined}
                     className={`border-b border-slate-100 last:border-0 hover:bg-slate-50 ${
                       onRowClick ? "cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-brand" : ""
                     } ${rowClassName ? rowClassName(row) : ""}`}
