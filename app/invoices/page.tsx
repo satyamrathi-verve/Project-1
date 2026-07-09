@@ -8,7 +8,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { DataTable, type Column } from "@/components/DataTable";
 import { NotConfigured } from "@/components/NotConfigured";
 import { inputClass } from "@/components/FormField";
-import { money, formatDate, isOverdue, statusPill } from "@/lib/format";
+import { money, formatDate, isOverdue, statusPill, formatInvoiceNo } from "@/lib/format";
 
 // One invoice row joined with its customer's name/code.
 interface InvoiceRow {
@@ -59,7 +59,8 @@ export default function InvoiceListPage() {
         !q ||
         r.customers?.name.toLowerCase().includes(q) ||
         r.customers?.code.toLowerCase().includes(q) ||
-        r.invoice_no.toLowerCase().includes(q);
+        r.invoice_no.toLowerCase().includes(q) ||
+        formatInvoiceNo(r.invoice_no, r.invoice_date).toLowerCase().includes(q);
       return matchesStatus && matchesSearch;
     });
   }, [rows, search, status]);
@@ -74,7 +75,7 @@ export default function InvoiceListPage() {
           className="font-medium text-brand hover:underline"
           onClick={(e) => e.stopPropagation()}
         >
-          {r.invoice_no}
+          {formatInvoiceNo(r.invoice_no, r.invoice_date)}
         </Link>
       ),
     },
