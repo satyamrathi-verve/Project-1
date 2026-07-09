@@ -462,7 +462,7 @@ export default function AutoEmailShootPage() {
             footer={
               <tr className="border-t-2 border-slate-300 bg-slate-50 font-semibold text-slate-900">
                 <td colSpan={5} className="px-4 py-3 text-right">
-                  Total Outstanding
+                  Total Receivable
                 </td>
                 <td className="px-4 py-3">{money(totalOutstanding)}</td>
                 <td colSpan={3} className="px-4 py-3" />
