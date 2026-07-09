@@ -37,14 +37,17 @@ export function useCountUp(target: number, run: boolean, ms = 1000) {
   return val;
 }
 
-export function KpiTile({ label, target, sub, accent, format, run }: {
+export function KpiTile({ label, target, sub, accent, format, run, size = "lg" }: {
   label: string; target: number; sub: string; accent: string; format: (n: number) => string; run: boolean;
+  /** "sm" for dense rows (5+ tiles) where a text-3xl figure would overflow the column. */
+  size?: "lg" | "sm";
 }) {
   const v = useCountUp(target, run);
+  const valueSize = size === "sm" ? "text-2xl" : "text-3xl";
   return (
-    <div className="themed-surface rounded-xl border border-line bg-surface p-5 transition-shadow hover:shadow-md">
+    <div className="themed-surface min-w-0 rounded-xl border border-line bg-surface p-5 transition-shadow hover:shadow-md">
       <p className="text-xs font-medium uppercase tracking-wide text-muted">{label}</p>
-      <p className={`mt-2 font-display text-3xl font-bold tabular-nums ${accent}`}>{format(v)}</p>
+      <p className={`mt-2 min-w-0 font-display ${valueSize} font-bold tabular-nums ${accent}`}>{format(v)}</p>
       <p className="mt-1 text-xs text-muted">{sub}</p>
     </div>
   );

@@ -508,7 +508,7 @@ export default function ReceiptEntryPage() {
         <div className="themed-surface rounded-xl border border-line bg-surface p-10 text-center text-faint">Loading…</div>
       ) : (
         <>
-          <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+          <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
             <KpiTile
               label="Total invoice value"
               target={kpis.totalInvoiceValue}
@@ -516,6 +516,7 @@ export default function ReceiptEntryPage() {
               accent="text-ink"
               format={money}
               run={animate}
+              size="sm"
             />
             <KpiTile
               label="Total outstanding"
@@ -524,6 +525,7 @@ export default function ReceiptEntryPage() {
               accent="text-red-600"
               format={money}
               run={animate}
+              size="sm"
             />
             <KpiTile
               label="Cash collected"
@@ -532,6 +534,7 @@ export default function ReceiptEntryPage() {
               accent="text-green-600"
               format={money}
               run={animate}
+              size="sm"
             />
             <KpiTile
               label="TDS deducted"
@@ -540,6 +543,7 @@ export default function ReceiptEntryPage() {
               accent="text-amber-600"
               format={money}
               run={animate}
+              size="sm"
             />
             <KpiTile
               label="Total settled"
@@ -548,6 +552,7 @@ export default function ReceiptEntryPage() {
               accent="text-brand"
               format={money}
               run={animate}
+              size="sm"
             />
             <KpiTile
               label="Overdue invoices"
@@ -556,6 +561,7 @@ export default function ReceiptEntryPage() {
               accent="text-red-600"
               format={(n) => String(Math.round(n))}
               run={animate}
+              size="sm"
             />
           </div>
 
