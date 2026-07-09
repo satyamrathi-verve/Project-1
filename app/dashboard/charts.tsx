@@ -6,12 +6,12 @@ import { money } from "@/lib/format";
 /* Card shell for every widget. */
 export function Card({ title, subtitle, children, right }: { title: string; subtitle?: string; children: ReactNode; right?: ReactNode }) {
   return (
-    <div className="flex h-full flex-col rounded-xl border border-slate-200 bg-white p-5">
+    <div className="themed-surface flex h-full flex-col rounded-xl border border-line bg-surface p-5">
       <div className="mb-1 flex items-start justify-between gap-2">
-        <h3 className="text-sm font-semibold text-slate-700">{title}</h3>
+        <h3 className="text-sm font-semibold text-ink">{title}</h3>
         {right}
       </div>
-      {subtitle && <p className="mb-4 text-xs text-slate-400">{subtitle}</p>}
+      {subtitle && <p className="mb-4 text-xs text-muted">{subtitle}</p>}
       <div className="flex-1">{children}</div>
     </div>
   );
@@ -42,10 +42,10 @@ export function KpiTile({ label, target, sub, accent, format, run }: {
 }) {
   const v = useCountUp(target, run);
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-5 transition-shadow hover:shadow-md">
-      <p className="text-xs font-medium uppercase tracking-wide text-slate-400">{label}</p>
-      <p className={`mt-2 text-3xl font-bold tabular-nums ${accent}`}>{format(v)}</p>
-      <p className="mt-1 text-xs text-slate-500">{sub}</p>
+    <div className="themed-surface rounded-xl border border-line bg-surface p-5 transition-shadow hover:shadow-md">
+      <p className="text-xs font-medium uppercase tracking-wide text-muted">{label}</p>
+      <p className={`mt-2 font-display text-3xl font-bold tabular-nums ${accent}`}>{format(v)}</p>
+      <p className="mt-1 text-xs text-muted">{sub}</p>
     </div>
   );
 }
@@ -56,23 +56,25 @@ export function VBars({ bars, run, fmt = money }: { bars: { label: string; value
   return (
     <div className="relative h-56">
       {[0, 25, 50, 75, 100].map((g) => (
-        <div key={g} className="absolute inset-x-0 border-t border-dashed border-slate-100" style={{ bottom: `${g}%` }} />
+        <div key={g} className="absolute inset-x-0 border-t border-dashed border-line" style={{ bottom: `${g + 6}%` }} />
       ))}
-      <div className="absolute inset-0 flex items-end justify-between gap-3 pb-6">
+      {/* plot area: leave room at top for value labels, bottom for x labels */}
+      <div className="absolute inset-x-0 bottom-6 top-5 flex items-end justify-between gap-3">
         {bars.map((b, i) => (
-          <div key={b.label} className="group flex flex-1 flex-col items-center justify-end gap-2" title={`${b.label}: ${fmt(b.value)}`}>
-            <span className="text-[11px] font-semibold tabular-nums text-slate-700 opacity-80 group-hover:opacity-100">
-              {b.value > 0 ? Math.round(b.value).toLocaleString("en-IN") : ""}
-            </span>
+          <div key={b.label} className="group relative flex h-full flex-1 items-end justify-center" title={`${b.label}: ${fmt(b.value)}`}>
             <div
-              className="w-full rounded-t-md shadow-sm transition-[height,filter] duration-700 ease-out group-hover:brightness-110"
-              style={{ height: run ? `${(b.value / max) * 100}%` : "0%", minHeight: b.value > 0 ? 4 : 0, transitionDelay: `${i * 90}ms`, backgroundImage: `linear-gradient(to top, ${b.color}, ${b.color}bb)` }}
-            />
+              className="relative w-full rounded-t-md shadow-sm transition-[height,filter] duration-700 ease-out group-hover:brightness-110"
+              style={{ height: run ? `${(b.value / max) * 100}%` : "0%", minHeight: b.value > 0 ? 4 : 0, transitionDelay: `${i * 90}ms`, backgroundImage: `linear-gradient(to top, ${b.color}, color-mix(in srgb, ${b.color} 72%, transparent))` }}
+            >
+              <span className="absolute inset-x-0 -top-5 text-center text-[11px] font-semibold tabular-nums text-ink opacity-80 group-hover:opacity-100">
+                {b.value > 0 ? Math.round(b.value).toLocaleString("en-IN") : ""}
+              </span>
+            </div>
           </div>
         ))}
       </div>
       <div className="absolute inset-x-0 bottom-0 flex justify-between gap-3">
-        {bars.map((b) => (<span key={b.label} className="flex-1 text-center text-[11px] leading-tight text-slate-500">{b.label}</span>))}
+        {bars.map((b) => (<span key={b.label} className="flex-1 text-center text-[11px] leading-tight text-muted">{b.label}</span>))}
       </div>
     </div>
   );
@@ -87,27 +89,25 @@ export function GroupedVBars({ categories, seriesA, seriesB, run }: {
   const max = Math.max(1, ...seriesA.values, ...seriesB.values);
   return (
     <>
-      <div className="mb-2 flex gap-3 text-[11px] text-slate-500">
+      <div className="mb-2 flex gap-3 text-[11px] text-muted">
         <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm" style={{ background: seriesA.color }} />{seriesA.name}</span>
         <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm" style={{ background: seriesB.color }} />{seriesB.name}</span>
       </div>
       <div className="relative h-48">
-        {[0, 25, 50, 75, 100].map((g) => (<div key={g} className="absolute inset-x-0 border-t border-dashed border-slate-100" style={{ bottom: `${g}%` }} />))}
-        <div className="absolute inset-0 flex items-end justify-between gap-4 pb-6">
+        {[0, 25, 50, 75, 100].map((g) => (<div key={g} className="absolute inset-x-0 border-t border-dashed border-line" style={{ bottom: `${g * 0.86 + 12}%` }} />))}
+        <div className="absolute inset-x-0 bottom-6 top-1 flex items-end justify-between gap-4">
           {categories.map((cat, i) => (
-            <div key={i} className="flex flex-1 flex-col items-center justify-end">
-              <div className="flex h-full w-full items-end justify-center gap-1">
-                {[seriesA, seriesB].map((s, si) => (
-                  <div key={s.name} className="w-1/2 max-w-[24px] rounded-t shadow-sm transition-[height] duration-700 ease-out hover:brightness-110"
-                    title={`${cat} · ${s.name}: ${money(s.values[i])}`}
-                    style={{ height: run ? `${(s.values[i] / max) * 100}%` : "0%", minHeight: s.values[i] > 0 ? 3 : 0, transitionDelay: `${i * 80 + si * 40}ms`, background: s.color }} />
-                ))}
-              </div>
+            <div key={i} className="flex h-full flex-1 items-end justify-center gap-1">
+              {[seriesA, seriesB].map((s, si) => (
+                <div key={s.name} className="w-1/2 max-w-[24px] rounded-t shadow-sm transition-[height] duration-700 ease-out hover:brightness-110"
+                  title={`${cat} · ${s.name}: ${money(s.values[i])}`}
+                  style={{ height: run ? `${(s.values[i] / max) * 100}%` : "0%", minHeight: s.values[i] > 0 ? 3 : 0, transitionDelay: `${i * 80 + si * 40}ms`, background: s.color }} />
+              ))}
             </div>
           ))}
         </div>
         <div className="absolute inset-x-0 bottom-0 flex justify-between gap-4">
-          {categories.map((cat, i) => (<span key={i} className="flex-1 text-center text-[11px] text-slate-500">{cat}</span>))}
+          {categories.map((cat, i) => (<span key={i} className="flex-1 text-center text-[11px] text-muted">{cat}</span>))}
         </div>
       </div>
     </>
@@ -123,7 +123,7 @@ export function Donut({ segments, total, run, centerLabel, valueFmt }: {
   return (
     <div className="flex items-center gap-6">
       <svg viewBox="0 0 36 36" className="h-32 w-32 -rotate-90">
-        <circle cx="18" cy="18" r="15.915" fill="none" stroke="#f1f5f9" strokeWidth="3.6" />
+        <circle cx="18" cy="18" r="15.915" fill="none" stroke="var(--surface2)" strokeWidth="3.6" />
         {segments.map((s, i) => {
           const pct = total ? (s.value / total) * 100 : 0;
           const seg = (
@@ -134,16 +134,16 @@ export function Donut({ segments, total, run, centerLabel, valueFmt }: {
           offset -= pct;
           return seg;
         })}
-        <text x="18" y="18" transform="rotate(90 18 18)" textAnchor="middle" dominantBaseline="central" className="fill-slate-800 text-[5px] font-bold">
+        <text x="18" y="18" transform="rotate(90 18 18)" textAnchor="middle" dominantBaseline="central" className="fill-ink text-[5px] font-bold">
           {centerLabel ?? total}
         </text>
       </svg>
       <ul className="space-y-1.5 text-sm">
         {segments.map((s) => (
-          <li key={s.label} className="flex items-center gap-2 text-slate-600">
+          <li key={s.label} className="flex items-center gap-2 text-muted">
             <span className="h-2.5 w-2.5 rounded-sm" style={{ background: s.color }} />
             <span className="capitalize">{s.label}</span>
-            <span className="ml-auto font-semibold tabular-nums text-slate-800">{fmtV(s.value)}</span>
+            <span className="ml-auto font-semibold tabular-nums text-ink">{fmtV(s.value)}</span>
           </li>
         ))}
       </ul>
@@ -154,18 +154,18 @@ export function Donut({ segments, total, run, centerLabel, valueFmt }: {
 /* Horizontal bars (top customers, credit utilisation). */
 export function HBars({ rows, run, fmt = money }: { rows: { name: string; value: number; label?: string; danger?: boolean }[]; run: boolean; fmt?: (n: number) => string }) {
   const max = Math.max(1, ...rows.map((r) => r.value));
-  if (rows.length === 0) return <p className="py-6 text-center text-sm text-slate-400">Nothing to show. 🎉</p>;
+  if (rows.length === 0) return <p className="py-6 text-center text-sm text-faint">Nothing to show. 🎉</p>;
   return (
     <ul className="space-y-3">
       {rows.map((r, i) => (
         <li key={r.name} title={`${r.name}: ${r.label ?? fmt(r.value)}`}>
           <div className="mb-1 flex justify-between text-xs">
-            <span className="truncate text-slate-600">{r.name}</span>
-            <span className={`ml-2 shrink-0 font-semibold tabular-nums ${r.danger ? "text-red-600" : "text-slate-800"}`}>{r.label ?? fmt(r.value)}</span>
+            <span className="truncate text-muted">{r.name}</span>
+            <span className={`ml-2 shrink-0 font-semibold tabular-nums ${r.danger ? "text-red-500" : "text-ink"}`}>{r.label ?? fmt(r.value)}</span>
           </div>
-          <div className="h-2.5 overflow-hidden rounded-full bg-slate-100">
+          <div className="h-2.5 overflow-hidden rounded-full bg-surface2">
             <div className="h-full rounded-full transition-[width] duration-700 ease-out"
-              style={{ width: run ? `${Math.min(100, (r.value / max) * 100)}%` : "0%", transitionDelay: `${i * 90}ms`, backgroundImage: r.danger ? "linear-gradient(to right,#dc2626,#b91c1c)" : "linear-gradient(to right,#2f6bff,#1f4ed8)" }} />
+              style={{ width: run ? `${Math.min(100, (r.value / max) * 100)}%` : "0%", transitionDelay: `${i * 90}ms`, backgroundImage: r.danger ? "linear-gradient(to right,#dc2626,#b91c1c)" : "linear-gradient(to right, var(--brand), var(--brand-dark))" }} />
           </div>
         </li>
       ))}
@@ -177,8 +177,8 @@ export function HBars({ rows, run, fmt = money }: { rows: { name: string; value:
 export function ComingSoon({ note }: { note: string }) {
   return (
     <div className="flex h-full min-h-[140px] flex-col items-center justify-center gap-2 text-center">
-      <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-500">Coming soon</span>
-      <p className="max-w-[220px] text-xs text-slate-400">{note}</p>
+      <span className="rounded-full bg-surface2 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-muted">Coming soon</span>
+      <p className="max-w-[220px] text-xs text-faint">{note}</p>
     </div>
   );
 }

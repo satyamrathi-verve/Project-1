@@ -49,18 +49,18 @@ export function DataTable<T extends { id: string }>({
   onSort?: (key: string) => void;
 }) {
   return (
-    <div className="overflow-x-auto overflow-y-hidden rounded-xl border border-slate-200 bg-white">
+    <div className="themed-surface overflow-x-auto overflow-y-hidden rounded-xl border border-line bg-surface">
       <table className="w-full text-sm">
         {caption && <caption className="sr-only">{caption}</caption>}
         <thead>
-          <tr className="border-b border-slate-200 bg-slate-50 text-left">
+          <tr className="border-b border-line bg-surface2 text-left">
             {columns.map((c) => (
               <th
                 key={c.key}
                 scope="col"
                 onClick={c.sortable && onSort ? () => onSort(c.key) : undefined}
-                className={`px-4 py-3 font-semibold text-slate-600 ${c.className ?? ""} ${
-                  c.sortable && onSort ? "cursor-pointer select-none whitespace-nowrap hover:text-slate-900" : ""
+                className={`px-4 py-3 font-semibold text-muted ${c.className ?? ""} ${
+                  c.sortable && onSort ? "cursor-pointer select-none whitespace-nowrap hover:text-ink" : ""
                 }`}
               >
                 {c.header}
@@ -72,7 +72,7 @@ export function DataTable<T extends { id: string }>({
         <tbody>
           {rows.length === 0 ? (
             <tr>
-              <td colSpan={columns.length} className="px-4 py-10 text-center text-slate-400">
+              <td colSpan={columns.length} className="px-4 py-10 text-center text-faint">
                 {empty}
               </td>
             </tr>
@@ -96,18 +96,18 @@ export function DataTable<T extends { id: string }>({
                     role={onRowClick ? "button" : undefined}
                     tabIndex={onRowClick ? 0 : undefined}
                     aria-expanded={renderExpanded ? expanded : undefined}
-                    className={`border-b border-slate-100 last:border-0 hover:bg-slate-50 ${
+                    className={`border-b border-line last:border-0 hover:bg-surface2 ${
                       onRowClick ? "cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-brand" : ""
                     } ${rowClassName ? rowClassName(row) : ""}`}
                   >
                     {columns.map((c) => (
-                      <td key={c.key} className={`px-4 py-3 text-slate-700 ${c.className ?? ""}`}>
+                      <td key={c.key} className={`px-4 py-3 text-ink ${c.className ?? ""}`}>
                         {c.render ? c.render(row) : String((row as Record<string, unknown>)[c.key] ?? "")}
                       </td>
                     ))}
                   </tr>
                   {expanded && (
-                    <tr className="border-b border-slate-100 bg-slate-50/60 last:border-0">
+                    <tr className="border-b border-line bg-surface2/60 last:border-0">
                       <td colSpan={columns.length} className="px-4 py-4">
                         {renderExpanded(row)}
                       </td>

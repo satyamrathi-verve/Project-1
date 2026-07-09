@@ -8,11 +8,11 @@ import { money, isOverdue, daysLate } from "@/lib/format";
 import { Card, KpiTile, VBars, GroupedVBars, Donut, HBars, ComingSoon } from "./charts";
 
 interface InvoiceRow { id: string; invoice_date: string; due_date: string | null; total: number; status: string; customer_id: string; customers: { name: string } | null; }
-interface ReceiptRow { receipt_date: string; amount: number; mode: string; }
-interface CustomerRow { id: string; name: string; credit_limit: number; }
+interface ReceiptRow { receipt_date: string; amount: number; mode: string; customer_id: string; }
+interface CustomerRow { id: string; name: string; credit_limit: number; address: string | null; }
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-const STORE_KEY = "ar-dash-config-v3";
+const STORE_KEY = "ar-dash-config-v4";
 
 /* Widget catalogue. render() returns the inner content for the given metrics. */
 interface Metrics {
@@ -35,14 +35,14 @@ const WIDGETS: WidgetDef[] = [
   { id: "kpis", title: "Key AR metrics", span: 3, kpi: true },
   { id: "ageing", title: "AR Ageing — outstanding by bucket", subtitle: "How much is owed, grouped by how late it is (INR). Blue = current, amber = watch, red = critical.", span: 2, render: (m) => <VBars bars={m.ageing} run={m.run} /> },
   { id: "status", title: "Invoices by status", subtitle: "Portfolio mix across all invoices.", span: 1, render: (m) => <Donut segments={m.statusSeg} total={m.invoiceCount} run={m.run} /> },
-  { id: "trend", title: "Invoiced vs Collected — by month", subtitle: "Cash raised vs cash received each month (INR).", span: 2, render: (m) => <GroupedVBars categories={m.months} seriesA={{ name: "Invoiced", color: "#2f6bff", values: m.invoicedByMonth }} seriesB={{ name: "Collected", color: "#16a34a", values: m.collectedByMonth }} run={m.run} /> },
+  { id: "trend", title: "Invoiced vs Collected — by month", subtitle: "Cash raised vs cash received each month (INR).", span: 2, render: (m) => <GroupedVBars categories={m.months} seriesA={{ name: "Invoiced", color: "var(--brand)", values: m.invoicedByMonth }} seriesB={{ name: "Collected", color: "#16a34a", values: m.collectedByMonth }} run={m.run} /> },
   { id: "topOverdue", title: "Top overdue customers", subtitle: "Who to chase first — overdue outstanding (INR).", span: 1, render: (m) => <HBars rows={m.topOverdue} run={m.run} /> },
   { id: "receiptsMode", title: "Receipts by mode", subtitle: "How customers are paying.", span: 1, render: (m) => <Donut segments={m.receiptsMode} total={m.receiptsTotal} run={m.run} centerLabel={`${m.receiptCount}`} valueFmt={money} /> },
   { id: "creditUtil", title: "Credit-limit utilisation", subtitle: "Outstanding vs each customer's credit limit. Red = over limit.", span: 2, render: (m) => <HBars rows={m.creditUtil} run={m.run} /> },
   { id: "badDebt", title: "Bad-debt risk (90+ days)", subtitle: "Outstanding past 90 days — highest risk of turning bad.", span: 1, render: (m) => (
     <div>
       <p className="text-3xl font-bold tabular-nums text-red-600">{money(m.badDebt90)}</p>
-      <p className="mb-4 text-xs text-slate-500">{m.badDebtPct.toFixed(1)}% of total outstanding</p>
+      <p className="mb-4 text-xs text-muted">{m.badDebtPct.toFixed(1)}% of total outstanding</p>
       <HBars rows={m.badDebtCustomers} run={m.run} />
     </div>
   ) },
@@ -52,7 +52,7 @@ const WIDGETS: WidgetDef[] = [
   { id: "dispute", title: "Dispute rate", span: 1, comingSoon: "Needs a 'disputed' flag on invoices — not captured in the data yet." },
 ];
 
-const DEFAULT_WIDGETS = ["kpis", "ageing", "status", "trend", "topOverdue", "receiptsMode", "creditUtil", "badDebt", "cashForecast", "glSales"];
+const DEFAULT_WIDGETS = ["kpis", "trend", "status", "ageing", "topOverdue", "receiptsMode", "creditUtil", "badDebt", "cashForecast", "glSales"];
 
 interface Board { id: string; name: string; widgets: string[]; }
 interface Config { activeId: string; boards: Board[]; }
@@ -71,6 +71,8 @@ export default function DashboardPage() {
   // Dashboard config (multi-board + customise), persisted to localStorage.
   const [config, setConfig] = useState<Config>(defaultConfig);
   const [customise, setCustomise] = useState(false);
+  const [location, setLocation] = useState("all");
+  const [zoomed, setZoomed] = useState<string | null>(null);
   const configLoaded = useRef(false);
 
   useEffect(() => {
@@ -95,8 +97,8 @@ export default function DashboardPage() {
     const [inv, alloc, rec, cust] = await Promise.all([
       c.from("invoices").select("id, invoice_date, due_date, total, status, customer_id, customers(name)").order("invoice_date", { ascending: false }),
       c.from("receipt_allocations").select("invoice_id, amount"),
-      c.from("receipts").select("receipt_date, amount, mode"),
-      c.from("customers").select("id, name, credit_limit"),
+      c.from("receipts").select("receipt_date, amount, mode, customer_id"),
+      c.from("customers").select("id, name, credit_limit, address"),
     ]);
     setInvoices((inv.data as unknown as InvoiceRow[]) ?? []);
     setReceipts((rec.data as unknown as ReceiptRow[]) ?? []);
@@ -126,44 +128,51 @@ export default function DashboardPage() {
     if (!loading && !started.current) { started.current = true; const t = setTimeout(() => setAnimate(true), 80); return () => clearTimeout(t); }
   }, [loading]);
 
-  // ---- Metrics ----
+  // ---- Location filter (by customer city) ----
+  const cityByCustomer: Record<string, string> = {}; customers.forEach((c) => (cityByCustomer[c.id] = c.address ?? "—"));
+  const locations = Array.from(new Set(customers.map((c) => c.address ?? "—"))).filter(Boolean).sort();
+  const inLoc = (custId: string) => location === "all" || cityByCustomer[custId] === location;
+  const invF = location === "all" ? invoices : invoices.filter((r) => inLoc(r.customer_id));
+  const recF = location === "all" ? receipts : receipts.filter((r) => inLoc(r.customer_id));
+  const custF = location === "all" ? customers : customers.filter((c) => (c.address ?? "—") === location);
+
+  // ---- Metrics (computed from the location-filtered data) ----
   const outstandingOf = (r: InvoiceRow) => Math.max(0, Number(r.total) - (receivedByInvoice[r.id] ?? 0));
   const effStatus = (r: InvoiceRow) => (isOverdue(r.status, r.due_date) ? "overdue" : r.status);
-  const unpaid = invoices.filter((r) => r.status !== "paid");
-  const overdue = invoices.filter((r) => isOverdue(r.status, r.due_date));
+  const unpaid = invF.filter((r) => r.status !== "paid");
+  const overdue = invF.filter((r) => isOverdue(r.status, r.due_date));
   const totalOutstanding = unpaid.reduce((s, r) => s + outstandingOf(r), 0);
   const overdueOutstanding = overdue.reduce((s, r) => s + outstandingOf(r), 0);
-  const totalInvoiced = invoices.reduce((s, r) => s + Number(r.total), 0);
-  const collectedTotal = Object.values(receivedByInvoice).reduce((s, v) => s + v, 0);
+  const totalInvoiced = invF.reduce((s, r) => s + Number(r.total), 0);
 
   // DSO (estimate): outstanding / credit sales × days in period.
-  const dates = invoices.map((r) => new Date(r.invoice_date).getTime()).filter((t) => !isNaN(t));
+  const dates = invF.map((r) => new Date(r.invoice_date).getTime()).filter((t) => !isNaN(t));
   const periodDays = dates.length ? Math.max(1, Math.round((Math.max(...dates) - Math.min(...dates)) / 86400000)) : 1;
   const dso = totalInvoiced > 0 ? (totalOutstanding / totalInvoiced) * periodDays : 0;
   // CEI (estimate): collected-on-due / amount-due × 100.
-  const dueInvoices = invoices.filter((r) => r.due_date && new Date(r.due_date) <= new Date());
+  const dueInvoices = invF.filter((r) => r.due_date && new Date(r.due_date) <= new Date());
   const amountDue = dueInvoices.reduce((s, r) => s + Number(r.total), 0);
   const collectedOnDue = dueInvoices.reduce((s, r) => s + (receivedByInvoice[r.id] ?? 0), 0);
   const cei = amountDue > 0 ? Math.min(100, (collectedOnDue / amountDue) * 100) : 100;
   const overduePct = totalOutstanding > 0 ? (overdueOutstanding / totalOutstanding) * 100 : 0;
 
   const ageing = [
-    { label: "Not due", color: "#2f6bff", value: unpaid.filter((r) => !isOverdue(r.status, r.due_date)).reduce((s, r) => s + outstandingOf(r), 0) },
-    { label: "0–30", color: "#2f6bff", value: unpaid.filter((r) => isOverdue(r.status, r.due_date) && daysLate(r.due_date) <= 30).reduce((s, r) => s + outstandingOf(r), 0) },
+    { label: "Not due", color: "var(--brand)", value: unpaid.filter((r) => !isOverdue(r.status, r.due_date)).reduce((s, r) => s + outstandingOf(r), 0) },
+    { label: "0–30", color: "var(--brand)", value: unpaid.filter((r) => isOverdue(r.status, r.due_date) && daysLate(r.due_date) <= 30).reduce((s, r) => s + outstandingOf(r), 0) },
     { label: "31–60", color: "#d97706", value: unpaid.filter((r) => daysLate(r.due_date) >= 31 && daysLate(r.due_date) <= 60).reduce((s, r) => s + outstandingOf(r), 0) },
     { label: "61–90", color: "#d97706", value: unpaid.filter((r) => daysLate(r.due_date) >= 61 && daysLate(r.due_date) <= 90).reduce((s, r) => s + outstandingOf(r), 0) },
     { label: "90+", color: "#dc2626", value: unpaid.filter((r) => daysLate(r.due_date) > 90).reduce((s, r) => s + outstandingOf(r), 0) },
   ];
 
   const statusColors: Record<string, string> = { open: "#64748b", partial: "#d97706", overdue: "#dc2626", paid: "#16a34a" };
-  const statusSeg = ["open", "partial", "overdue", "paid"].map((st) => ({ label: st, color: statusColors[st], value: invoices.filter((r) => effStatus(r) === st).length })).filter((s) => s.value > 0);
+  const statusSeg = ["open", "partial", "overdue", "paid"].map((st) => ({ label: st, color: statusColors[st], value: invF.filter((r) => effStatus(r) === st).length })).filter((s) => s.value > 0);
 
   const monthKey = (d: string) => d.slice(0, 7);
-  const mset = new Set<string>(); invoices.forEach((r) => mset.add(monthKey(r.invoice_date))); receipts.forEach((r) => mset.add(monthKey(r.receipt_date)));
+  const mset = new Set<string>(); invF.forEach((r) => mset.add(monthKey(r.invoice_date))); recF.forEach((r) => mset.add(monthKey(r.receipt_date)));
   const monthsArr = Array.from(mset).sort();
   const months = monthsArr.map((m) => MONTHS[parseInt(m.slice(5, 7), 10) - 1]);
-  const invoicedByMonth = monthsArr.map((m) => invoices.filter((r) => monthKey(r.invoice_date) === m).reduce((s, r) => s + Number(r.total), 0));
-  const collectedByMonth = monthsArr.map((m) => receipts.filter((r) => monthKey(r.receipt_date) === m).reduce((s, r) => s + Number(r.amount), 0));
+  const invoicedByMonth = monthsArr.map((m) => invF.filter((r) => monthKey(r.invoice_date) === m).reduce((s, r) => s + Number(r.total), 0));
+  const collectedByMonth = monthsArr.map((m) => recF.filter((r) => monthKey(r.receipt_date) === m).reduce((s, r) => s + Number(r.amount), 0));
 
   const custName: Record<string, string> = {}; customers.forEach((c) => (custName[c.id] = c.name));
   const overdueByCust: Record<string, number> = {};
@@ -172,13 +181,13 @@ export default function DashboardPage() {
 
   const modeColors: Record<string, string> = { cash: "#2f6bff", cheque: "#16a34a", upi: "#d97706", neft: "#7c3aed" };
   const modeAgg: Record<string, number> = {};
-  receipts.forEach((r) => { modeAgg[r.mode] = (modeAgg[r.mode] ?? 0) + Number(r.amount); });
+  recF.forEach((r) => { modeAgg[r.mode] = (modeAgg[r.mode] ?? 0) + Number(r.amount); });
   const receiptsMode = Object.entries(modeAgg).map(([label, value]) => ({ label, value, color: modeColors[label] ?? "#64748b" }));
-  const receiptsTotal = receipts.reduce((s, r) => s + Number(r.amount), 0);
+  const receiptsTotal = recF.reduce((s, r) => s + Number(r.amount), 0);
 
   const outByCust: Record<string, number> = {};
   unpaid.forEach((r) => { outByCust[r.customer_id] = (outByCust[r.customer_id] ?? 0) + outstandingOf(r); });
-  const creditUtil = customers.filter((c) => c.credit_limit > 0).map((c) => {
+  const creditUtil = custF.filter((c) => c.credit_limit > 0).map((c) => {
     const out = outByCust[c.id] ?? 0; const pct = (out / c.credit_limit) * 100;
     return { name: c.name, value: pct, label: `${pct.toFixed(0)}%`, danger: pct > 100 };
   }).filter((r) => r.value > 0).sort((a, b) => b.value - a.value).slice(0, 6);
@@ -204,13 +213,13 @@ export default function DashboardPage() {
   });
   const forecast = [
     { label: "Overdue", color: "#dc2626", value: fc[0] },
-    { label: MONTHS[curM], color: "#2f6bff", value: fc[1] },
-    { label: MONTHS[(curM + 1) % 12], color: "#2f6bff", value: fc[2] },
-    { label: MONTHS[(curM + 2) % 12], color: "#2f6bff", value: fc[3] },
+    { label: MONTHS[curM], color: "var(--brand)", value: fc[1] },
+    { label: MONTHS[(curM + 1) % 12], color: "var(--brand)", value: fc[2] },
+    { label: MONTHS[(curM + 2) % 12], color: "var(--brand)", value: fc[3] },
   ];
 
   const metrics: Metrics = {
-    run: animate, customerCount: customers.length, invoiceCount: invoices.length,
+    run: animate, customerCount: custF.length, invoiceCount: invF.length,
     dso, cei, totalOutstanding, overduePct, overdueOutstanding,
     ageing, statusSeg, months, invoicedByMonth, collectedByMonth, topOverdue,
     receiptsMode, receiptsTotal, receiptCount: receipts.length, creditUtil, badDebt90, badDebtPct, badDebtCustomers, forecast,
@@ -244,7 +253,7 @@ export default function DashboardPage() {
         title="Dashboard"
         subtitle="The finance team's at-a-glance AR view. All amounts in INR."
         action={
-          <span className="flex items-center gap-2 rounded-full bg-green-50 px-3 py-1.5 text-xs font-medium text-green-700">
+          <span className="flex items-center gap-2 rounded-full bg-green-500/10 px-3 py-1.5 text-xs font-medium text-green-500">
             <span className="relative flex h-2 w-2"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-500 opacity-75" /><span className="relative inline-flex h-2 w-2 rounded-full bg-green-500" /></span>
             Live{lastUpdate ? ` · ${lastUpdate}` : ""}
           </span>
@@ -254,27 +263,40 @@ export default function DashboardPage() {
       {!isConfigured ? (
         <NotConfigured />
       ) : loading ? (
-        <div className="rounded-xl border border-slate-200 bg-white p-10 text-center text-slate-400">Loading…</div>
+        <div className="themed-surface rounded-xl border border-line bg-surface p-10 text-center text-faint">Loading…</div>
       ) : (
         <>
           {/* Dashboard tabs + customise controls */}
           <div className="mb-5 flex flex-wrap items-center gap-2">
             {config.boards.map((b) => (
               <button key={b.id} onClick={() => setConfig((c) => ({ ...c, activeId: b.id }))}
-                className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${b.id === active.id ? "bg-brand text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}>
+                className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${b.id === active.id ? "bg-brand text-brandink" : "bg-surface2 text-muted hover:text-ink"}`}>
                 {b.name}
               </button>
             ))}
-            <button onClick={newBoard} className="rounded-lg border border-dashed border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-500 hover:border-brand hover:text-brand">+ New Dashboard</button>
-            <div className="ml-auto flex gap-2">
+            <button onClick={newBoard} className="rounded-lg border border-dashed border-line px-3 py-1.5 text-sm font-medium text-muted hover:border-brand hover:text-brand">+ New Dashboard</button>
+            <div className="ml-auto flex items-center gap-2">
+              <label className="flex items-center gap-1.5 text-xs text-muted">
+                <span className="uppercase tracking-wide">Location</span>
+                <select
+                  value={location}
+                  onChange={(e) => setLocation(e.target.value)}
+                  className="rounded-lg border border-line bg-surface px-2.5 py-1.5 text-sm text-ink outline-none focus:border-brand"
+                >
+                  <option value="all">All ({customers.length})</option>
+                  {locations.map((loc) => (
+                    <option key={loc} value={loc}>{loc}</option>
+                  ))}
+                </select>
+              </label>
               {customise && (
                 <>
-                  <button onClick={renameBoard} className="rounded-lg bg-slate-100 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-200">Rename</button>
-                  <button onClick={resetBoard} className="rounded-lg bg-slate-100 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-200">Reset</button>
-                  {config.boards.length > 1 && <button onClick={deleteBoard} className="rounded-lg bg-red-50 px-3 py-1.5 text-sm text-red-600 hover:bg-red-100">Delete</button>}
+                  <button onClick={renameBoard} className="rounded-lg bg-surface2 px-3 py-1.5 text-sm text-muted hover:text-ink">Rename</button>
+                  <button onClick={resetBoard} className="rounded-lg bg-surface2 px-3 py-1.5 text-sm text-muted hover:text-ink">Reset</button>
+                  {config.boards.length > 1 && <button onClick={deleteBoard} className="rounded-lg bg-red-500/10 px-3 py-1.5 text-sm text-red-500 hover:bg-red-500/20">Delete</button>}
                 </>
               )}
-              <button onClick={() => setCustomise((v) => !v)} className={`rounded-lg px-3 py-1.5 text-sm font-semibold ${customise ? "bg-brand text-white" : "bg-slate-100 text-slate-700 hover:bg-slate-200"}`}>
+              <button onClick={() => setCustomise((v) => !v)} className={`rounded-lg px-3 py-1.5 text-sm font-semibold ${customise ? "bg-brand text-brandink" : "bg-surface2 text-ink hover:opacity-80"}`}>
                 {customise ? "✓ Done" : "⚙ Customise"}
               </button>
             </div>
@@ -288,31 +310,57 @@ export default function DashboardPage() {
               const spanClass = def.span === 3 ? "lg:col-span-3" : def.span === 2 ? "lg:col-span-2" : "lg:col-span-1";
               const controls = customise && (
                 <div className="mb-2 flex items-center justify-end gap-1">
-                  <button onClick={() => move(idx, -1)} className="rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-500 hover:bg-slate-200" title="Move up">↑</button>
-                  <button onClick={() => move(idx, 1)} className="rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-500 hover:bg-slate-200" title="Move down">↓</button>
-                  <button onClick={() => remove(wid)} className="rounded bg-red-50 px-2 py-0.5 text-xs text-red-500 hover:bg-red-100" title="Remove">✕</button>
+                  <button onClick={() => move(idx, -1)} className="rounded bg-surface2 px-2 py-0.5 text-xs text-muted hover:text-ink" title="Move up">↑</button>
+                  <button onClick={() => move(idx, 1)} className="rounded bg-surface2 px-2 py-0.5 text-xs text-muted hover:text-ink" title="Move down">↓</button>
+                  <button onClick={() => remove(wid)} className="rounded bg-red-500/10 px-2 py-0.5 text-xs text-red-500 hover:bg-red-500/20" title="Remove">✕</button>
                 </div>
               );
               return (
-                <div key={wid} className={`${spanClass} ${customise ? "rounded-xl ring-1 ring-dashed ring-slate-300" : ""} ${customise ? "p-2" : ""}`}>
+                <div key={wid} className={`relative ${spanClass} ${customise ? "rounded-xl p-2 ring-1 ring-dashed ring-line" : ""}`}>
                   {controls}
                   {def.kpi ? kpiRow : (
-                    <Card title={def.title} subtitle={def.subtitle}>
-                      {def.comingSoon ? <ComingSoon note={def.comingSoon} /> : def.render?.(metrics)}
-                    </Card>
+                    <div
+                      onClick={!customise ? () => setZoomed(wid) : undefined}
+                      className={!customise ? "group relative h-full cursor-zoom-in transition-all duration-200 hover:-translate-y-0.5 [&>*]:transition-shadow [&:hover>*]:shadow-xl" : "h-full"}
+                    >
+                      {!customise && (
+                        <span className="pointer-events-none absolute right-3 top-3 z-10 rounded-md bg-brand px-2 py-1 text-[10px] font-semibold text-brandink opacity-0 shadow transition-opacity group-hover:opacity-100">⤢ Expand</span>
+                      )}
+                      <Card title={def.title} subtitle={def.subtitle}>
+                        {def.comingSoon ? <ComingSoon note={def.comingSoon} /> : def.render?.(metrics)}
+                      </Card>
+                    </div>
                   )}
                 </div>
               );
             })}
           </div>
 
+          {/* Zoom / expand overlay */}
+          {zoomed && (() => {
+            const def = WIDGETS.find((w) => w.id === zoomed);
+            if (!def || def.kpi) return null;
+            return (
+              <div onClick={() => setZoomed(null)} className="fixed inset-0 z-50 grid place-items-center overflow-auto bg-black/70 p-6 backdrop-blur-sm">
+                <div onClick={(e) => e.stopPropagation()} className="relative">
+                  <button onClick={() => setZoomed(null)} className="absolute -top-11 right-0 rounded-lg bg-surface px-3 py-1.5 text-sm font-medium text-ink shadow-lg hover:bg-surface2">✕ Close</button>
+                  <div className="origin-center scale-[0.62] sm:scale-90 lg:scale-110" style={{ width: 760 }}>
+                    <Card title={def.title} subtitle={def.subtitle}>
+                      {def.comingSoon ? <ComingSoon note={def.comingSoon} /> : def.render?.(metrics)}
+                    </Card>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+
           {/* Add-widget tray (customise mode) */}
           {customise && hidden.length > 0 && (
-            <div className="mt-5 rounded-xl border border-dashed border-slate-300 bg-slate-50 p-4">
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Add a widget</p>
+            <div className="mt-5 rounded-xl border border-dashed border-line bg-surface2 p-4">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">Add a widget</p>
               <div className="flex flex-wrap gap-2">
                 {hidden.map((w) => (
-                  <button key={w.id} onClick={() => add(w.id)} className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-600 hover:border-brand hover:text-brand">
+                  <button key={w.id} onClick={() => add(w.id)} className="themed-surface rounded-lg border border-line bg-surface px-3 py-1.5 text-sm text-muted hover:border-brand hover:text-brand">
                     + {w.title}{w.comingSoon ? " (soon)" : ""}
                   </button>
                 ))}

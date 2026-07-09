@@ -2,22 +2,72 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
+/* ============================================================
+   Verve Gold theme · three modes: Normal (light), Dark, Bluish.
+   The active mode is set by data-theme on <html> (see ThemeToggle).
+   Components read these tokens via Tailwind's semantic colours
+   (bg-surface, text-ink, border-line, text-brand, …).
+   ============================================================ */
+
+:root,
+:root[data-theme="normal"] {
   color-scheme: light;
+  --canvas: #faf7f0;
+  --surface: #ffffff;
+  --surface2: #f5f1e8;
+  --ink: #1c1917;
+  --muted: #79716b;
+  --faint: #a8a29e;
+  --line: #ece5d8;
+  --brand: #b6832a;
+  --brand-dark: #8f6720;
+  --brand-ink: #ffffff;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --canvas: #12100c;
+  --surface: #1c1a14;
+  --surface2: #262219;
+  --ink: #f0e9d8;
+  --muted: #9a917d;
+  --faint: #6f6858;
+  --line: #2e2a20;
+  --brand: #d1a054;
+  --brand-dark: #b6832a;
+  --brand-ink: #1c140a;
+}
+
+:root[data-theme="bluish"] {
+  color-scheme: dark;
+  --canvas: #0e1424;
+  --surface: #161d33;
+  --surface2: #1f2846;
+  --ink: #e7ebf5;
+  --muted: #8b94a8;
+  --faint: #5f6a85;
+  --line: #283251;
+  --brand: #6d5efc;
+  --brand-dark: #574bd6;
+  --brand-ink: #ffffff;
 }
 
 body {
-  @apply bg-slate-50 text-slate-800 antialiased;
+  background: var(--canvas);
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
 }
 
-/* Printable reports (Ageing, Statement, Invoice Print Preview…): hide the app
-   chrome and let the report fill the page. */
+/* Smooth the mode switch. */
+body,
+nav,
+.themed-surface {
+  transition: background-color 0.25s ease, color 0.25s ease, border-color 0.25s ease;
+}
+
+/* Printable reports: hide the app chrome and let the report fill the page. */
 @media print {
-  nav {
-    display: none;
-  }
-  main {
-    overflow: visible !important;
-    padding: 0 !important;
-  }
+  nav { display: none; }
+  main { overflow: visible !important; padding: 0 !important; }
+  body { background: #fff; color: #000; }
 }

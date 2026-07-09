@@ -223,7 +223,7 @@ export function InvoiceForm({ invoiceId }: { invoiceId?: string }) {
     return (
       <div>
         <PageHeader title={editing ? "Edit invoice" : "New invoice"} />
-        <div className="rounded-xl border border-slate-200 bg-white p-10 text-center text-slate-400">Loading…</div>
+        <div className="rounded-xl border border-line bg-surface themed-surface p-10 text-center text-faint">Loading…</div>
       </div>
     );
   }
@@ -238,7 +238,7 @@ export function InvoiceForm({ invoiceId }: { invoiceId?: string }) {
         action={
           <Link
             href={editing && invoiceId ? `/invoices/${invoiceId}` : "/invoices"}
-            className="rounded-lg bg-slate-100 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-200"
+            className="rounded-lg bg-surface2 px-4 py-2 text-sm font-medium text-muted hover:bg-surface2"
           >
             Cancel
           </Link>
@@ -247,7 +247,7 @@ export function InvoiceForm({ invoiceId }: { invoiceId?: string }) {
 
       <div className="space-y-6">
         {/* Customer + dates + credit term */}
-        <div className="space-y-4 rounded-xl border border-slate-200 bg-white p-5">
+        <div className="space-y-4 rounded-xl border border-line bg-surface themed-surface p-5">
           <FormField label="Customer">
             <select className={inputClass} value={customerId} onChange={(e) => onCustomerChange(e.target.value)}>
               <option value="">Select a customer…</option>
@@ -278,15 +278,15 @@ export function InvoiceForm({ invoiceId }: { invoiceId?: string }) {
         </div>
 
         {/* Line items */}
-        <div className="rounded-xl border border-slate-200 bg-white p-5">
+        <div className="rounded-xl border border-line bg-surface themed-surface p-5">
           <div className="mb-3 flex items-center justify-between">
-            <p className="text-sm font-semibold text-slate-700">Line items</p>
-            <button onClick={addRow} className="rounded-lg bg-slate-100 px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-200">
+            <p className="text-sm font-semibold text-ink">Line items</p>
+            <button onClick={addRow} className="rounded-lg bg-surface2 px-3 py-1.5 text-sm font-medium text-muted hover:bg-surface2">
               + Add row
             </button>
           </div>
           <div className="space-y-2">
-            <div className="hidden grid-cols-12 gap-2 px-1 text-xs font-medium uppercase tracking-wide text-slate-400 md:grid">
+            <div className="hidden grid-cols-12 gap-2 px-1 text-xs font-medium uppercase tracking-wide text-faint md:grid">
               <span className="col-span-6">Description</span>
               <span className="col-span-1 text-center">SAC</span>
               <span className="col-span-1 text-right">Qty</span>
@@ -303,7 +303,7 @@ export function InvoiceForm({ invoiceId }: { invoiceId?: string }) {
                     value={it.description}
                     onChange={(e) => setItem(i, { description: e.target.value })}
                   />
-                  <span className="col-span-2 text-center text-xs text-slate-400 md:col-span-1">{SERVICE_SAC}</span>
+                  <span className="col-span-2 text-center text-xs text-faint md:col-span-1">{SERVICE_SAC}</span>
                   <input
                     className={`${inputClass} col-span-3 text-right md:col-span-1`}
                     type="number"
@@ -319,10 +319,10 @@ export function InvoiceForm({ invoiceId }: { invoiceId?: string }) {
                     value={it.rate}
                     onChange={(e) => setItem(i, { rate: e.target.value })}
                   />
-                  <span className="col-span-2 text-right text-sm tabular-nums text-slate-700 md:col-span-2">{money(amount)}</span>
+                  <span className="col-span-2 text-right text-sm tabular-nums text-ink md:col-span-2">{money(amount)}</span>
                   <button
                     onClick={() => removeRow(i)}
-                    className="col-span-1 text-slate-300 hover:text-red-500"
+                    className="col-span-1 text-faint hover:text-red-500"
                     title="Remove row"
                     aria-label="Remove row"
                   >
@@ -336,53 +336,53 @@ export function InvoiceForm({ invoiceId }: { invoiceId?: string }) {
 
         {/* Totals + notes */}
         <div className="grid gap-6 md:grid-cols-2">
-          <div className="rounded-xl border border-slate-200 bg-white p-5">
+          <div className="rounded-xl border border-line bg-surface themed-surface p-5">
             <FormField label="Notes (optional)">
               <textarea className={`${inputClass} h-24 resize-none`} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Any note for this invoice…" />
             </FormField>
           </div>
-          <div className="space-y-2 rounded-xl border border-slate-200 bg-white p-5 text-sm">
+          <div className="space-y-2 rounded-xl border border-line bg-surface themed-surface p-5 text-sm">
             <div className="flex justify-between">
-              <span className="text-slate-500">Subtotal (taxable)</span>
-              <span className="tabular-nums text-slate-800">{money(subtotal)}</span>
+              <span className="text-muted">Subtotal (taxable)</span>
+              <span className="tabular-nums text-ink">{money(subtotal)}</span>
             </div>
             {taxSplit.intraState ? (
               <>
                 <div className="flex justify-between">
-                  <span className="text-slate-500">CGST (9%)</span>
-                  <span className="tabular-nums text-slate-800">{money(taxSplit.cgst)}</span>
+                  <span className="text-muted">CGST (9%)</span>
+                  <span className="tabular-nums text-ink">{money(taxSplit.cgst)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-500">SGST (9%)</span>
-                  <span className="tabular-nums text-slate-800">{money(taxSplit.sgst)}</span>
+                  <span className="text-muted">SGST (9%)</span>
+                  <span className="tabular-nums text-ink">{money(taxSplit.sgst)}</span>
                 </div>
               </>
             ) : (
               <div className="flex justify-between">
-                <span className="text-slate-500">IGST (18%)</span>
-                <span className="tabular-nums text-slate-800">{money(taxSplit.igst)}</span>
+                <span className="text-muted">IGST (18%)</span>
+                <span className="tabular-nums text-ink">{money(taxSplit.igst)}</span>
               </div>
             )}
-            <div className="flex justify-between border-t border-slate-200 pt-2 text-base font-semibold">
-              <span className="text-slate-900">Total (INR)</span>
-              <span className="tabular-nums text-slate-900">{money(total)}</span>
+            <div className="flex justify-between border-t border-line pt-2 text-base font-semibold">
+              <span className="text-ink">Total (INR)</span>
+              <span className="tabular-nums text-ink">{money(total)}</span>
             </div>
           </div>
         </div>
 
-        {error && <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</div>}
+        {error && <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-600">{error}</div>}
 
         <div className="flex justify-end gap-3">
           <Link
             href={editing && invoiceId ? `/invoices/${invoiceId}` : "/invoices"}
-            className="rounded-lg bg-slate-100 px-5 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-200"
+            className="rounded-lg bg-surface2 px-5 py-2.5 text-sm font-medium text-muted hover:bg-surface2"
           >
             Cancel
           </Link>
           <button
             onClick={handleSave}
             disabled={saving}
-            className="rounded-lg bg-brand px-6 py-2.5 text-sm font-semibold text-white hover:bg-brand-dark disabled:opacity-60"
+            className="rounded-lg bg-brand px-6 py-2.5 text-sm font-semibold text-brandink hover:bg-brand-dark disabled:opacity-60"
           >
             {saving ? "Saving…" : editing ? "Save changes" : "Create invoice"}
           </button>

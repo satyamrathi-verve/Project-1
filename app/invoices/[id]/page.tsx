@@ -123,7 +123,7 @@ export default function InvoiceViewPage() {
     return (
       <div>
         <PageHeader title="Invoice" />
-        <div className="rounded-xl border border-slate-200 bg-white p-10 text-center text-slate-400">
+        <div className="rounded-xl border border-line bg-surface themed-surface p-10 text-center text-faint">
           Loading invoice…
         </div>
       </div>
@@ -134,7 +134,7 @@ export default function InvoiceViewPage() {
     return (
       <div>
         <PageHeader title="Invoice" />
-        <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+        <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-600">
           Could not load this invoice{error ? `: ${error}` : "."}{" "}
           <Link href="/invoices" className="font-medium text-brand hover:underline">
             Back to list
@@ -159,19 +159,19 @@ export default function InvoiceViewPage() {
           <div className="flex gap-2">
             <Link
               href="/invoices"
-              className="rounded-lg bg-slate-100 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-200"
+              className="rounded-lg bg-surface2 px-4 py-2 text-sm font-medium text-muted hover:bg-surface2"
             >
               ← Back
             </Link>
             <Link
               href={`/invoices/${invoice.id}/edit`}
-              className="rounded-lg bg-slate-100 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-200"
+              className="rounded-lg bg-surface2 px-4 py-2 text-sm font-medium text-muted hover:bg-surface2"
             >
               Edit
             </Link>
             <Link
               href={`/invoices/${invoice.id}/print`}
-              className="rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark"
+              className="rounded-lg bg-brand px-4 py-2 text-sm font-medium text-brandink hover:bg-brand-dark"
             >
               Print
             </Link>
@@ -182,10 +182,10 @@ export default function InvoiceViewPage() {
       <div className="space-y-6">
         {/* From (our company) + status */}
         <div className="grid gap-6 md:grid-cols-2">
-          <div className="rounded-xl border border-slate-200 bg-white p-5">
-            <p className="text-xs font-medium uppercase tracking-wide text-slate-400">From</p>
-            <p className="mt-1 text-lg font-semibold text-slate-900">{company?.name ?? "—"}</p>
-            <dl className="mt-2 space-y-1 text-sm text-slate-600">
+          <div className="rounded-xl border border-line bg-surface themed-surface p-5">
+            <p className="text-xs font-medium uppercase tracking-wide text-faint">From</p>
+            <p className="mt-1 text-lg font-semibold text-ink">{company?.name ?? "—"}</p>
+            <dl className="mt-2 space-y-1 text-sm text-muted">
               {company?.address && <div>{company.address}</div>}
               {company?.gstin && <div>GSTIN: {company.gstin}</div>}
               {company?.email && <div>{company.email}</div>}
@@ -193,9 +193,9 @@ export default function InvoiceViewPage() {
             </dl>
           </div>
 
-          <div className="rounded-xl border border-slate-200 bg-white p-5">
+          <div className="rounded-xl border border-line bg-surface themed-surface p-5">
             <div className="flex items-center justify-between">
-              <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Status</p>
+              <p className="text-xs font-medium uppercase tracking-wide text-faint">Status</p>
               <span
                 className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold capitalize ${statusPill(
                   overdue ? "overdue" : invoice.status
@@ -206,22 +206,22 @@ export default function InvoiceViewPage() {
             </div>
             <dl className="mt-3 space-y-2 text-sm">
               <div className="flex justify-between">
-                <dt className="text-slate-500">Invoice date</dt>
-                <dd className="text-slate-800">{formatDate(invoice.invoice_date)}</dd>
+                <dt className="text-muted">Invoice date</dt>
+                <dd className="text-ink">{formatDate(invoice.invoice_date)}</dd>
               </div>
               <div className="flex justify-between">
-                <dt className="text-slate-500">Due date</dt>
-                <dd className={overdue ? "font-medium text-red-600" : "text-slate-800"}>
+                <dt className="text-muted">Due date</dt>
+                <dd className={overdue ? "font-medium text-red-600" : "text-ink"}>
                   {formatDate(invoice.due_date)}
                 </dd>
               </div>
               <div className="flex justify-between">
-                <dt className="text-slate-500">Place of supply</dt>
-                <dd className="text-slate-800">{placeOfSupply(c?.gstin ?? null)}</dd>
+                <dt className="text-muted">Place of supply</dt>
+                <dd className="text-ink">{placeOfSupply(c?.gstin ?? null)}</dd>
               </div>
               <div className="flex justify-between">
-                <dt className="text-slate-500">Currency</dt>
-                <dd className="text-slate-800">INR</dd>
+                <dt className="text-muted">Currency</dt>
+                <dd className="text-ink">INR</dd>
               </div>
             </dl>
           </div>
@@ -229,11 +229,11 @@ export default function InvoiceViewPage() {
 
         {/* Bill To + Ship To */}
         <div className="grid gap-6 md:grid-cols-2">
-          <div className="rounded-xl border border-slate-200 bg-white p-5">
-            <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Bill To</p>
-            <p className="mt-1 text-base font-semibold text-slate-900">{c?.name ?? "—"}</p>
-            <p className="text-sm text-slate-500">{c?.code}</p>
-            <dl className="mt-2 space-y-1 text-sm text-slate-600">
+          <div className="rounded-xl border border-line bg-surface themed-surface p-5">
+            <p className="text-xs font-medium uppercase tracking-wide text-faint">Bill To</p>
+            <p className="mt-1 text-base font-semibold text-ink">{c?.name ?? "—"}</p>
+            <p className="text-sm text-muted">{c?.code}</p>
+            <dl className="mt-2 space-y-1 text-sm text-muted">
               {c?.address && <div>{c.address}</div>}
               {c?.gstin && <div>GSTIN: {c.gstin}</div>}
               {c?.pan && <div>PAN: {c.pan}</div>}
@@ -242,24 +242,24 @@ export default function InvoiceViewPage() {
             </dl>
           </div>
 
-          <div className="rounded-xl border border-slate-200 bg-white p-5">
-            <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
-              Ship To <span className="normal-case text-slate-400">(same as billing)</span>
+          <div className="rounded-xl border border-line bg-surface themed-surface p-5">
+            <p className="text-xs font-medium uppercase tracking-wide text-faint">
+              Ship To <span className="normal-case text-faint">(same as billing)</span>
             </p>
-            <p className="mt-1 text-base font-semibold text-slate-900">{c?.name ?? "—"}</p>
-            <dl className="mt-2 space-y-1 text-sm text-slate-600">
+            <p className="mt-1 text-base font-semibold text-ink">{c?.name ?? "—"}</p>
+            <dl className="mt-2 space-y-1 text-sm text-muted">
               {c?.address && <div>{c.address}</div>}
               {c?.gstin && <div>GSTIN: {c.gstin}</div>}
             </dl>
-            <div className="mt-3 border-t border-slate-100 pt-3">
+            <div className="mt-3 border-t border-line pt-3">
               <dl className="space-y-1 text-sm">
                 <div className="flex justify-between">
-                  <dt className="text-slate-500">PO No.</dt>
-                  <dd className="text-slate-800">&nbsp;</dd>
+                  <dt className="text-muted">PO No.</dt>
+                  <dd className="text-ink">&nbsp;</dd>
                 </div>
                 <div className="flex justify-between">
-                  <dt className="text-slate-500">PO Date</dt>
-                  <dd className="text-slate-800">&nbsp;</dd>
+                  <dt className="text-muted">PO Date</dt>
+                  <dd className="text-ink">&nbsp;</dd>
                 </div>
               </dl>
             </div>
@@ -267,32 +267,32 @@ export default function InvoiceViewPage() {
         </div>
 
         {/* Line items */}
-        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+        <div className="overflow-hidden rounded-xl border border-line bg-surface themed-surface">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-slate-200 bg-slate-50 text-left">
-                <th className="px-4 py-3 font-semibold text-slate-600">Description</th>
-                <th className="px-4 py-3 font-semibold text-slate-600">HSN/SAC</th>
-                <th className="px-4 py-3 text-right font-semibold text-slate-600">Qty</th>
-                <th className="px-4 py-3 text-right font-semibold text-slate-600">Rate</th>
-                <th className="px-4 py-3 text-right font-semibold text-slate-600">Amount (INR)</th>
+              <tr className="border-b border-line bg-surface2 text-left">
+                <th className="px-4 py-3 font-semibold text-muted">Description</th>
+                <th className="px-4 py-3 font-semibold text-muted">HSN/SAC</th>
+                <th className="px-4 py-3 text-right font-semibold text-muted">Qty</th>
+                <th className="px-4 py-3 text-right font-semibold text-muted">Rate</th>
+                <th className="px-4 py-3 text-right font-semibold text-muted">Amount (INR)</th>
               </tr>
             </thead>
             <tbody>
               {items.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-4 py-8 text-center text-slate-400">
+                  <td colSpan={5} className="px-4 py-8 text-center text-faint">
                     No line items.
                   </td>
                 </tr>
               ) : (
                 items.map((it) => (
-                  <tr key={it.id} className="border-b border-slate-100 last:border-0">
-                    <td className="px-4 py-3 text-slate-700">{it.description}</td>
-                    <td className="px-4 py-3 tabular-nums text-slate-700">{SERVICE_SAC}</td>
-                    <td className="px-4 py-3 text-right tabular-nums text-slate-700">{it.qty}</td>
-                    <td className="px-4 py-3 text-right tabular-nums text-slate-700">{money(it.rate)}</td>
-                    <td className="px-4 py-3 text-right tabular-nums text-slate-700">{money(it.amount)}</td>
+                  <tr key={it.id} className="border-b border-line last:border-0">
+                    <td className="px-4 py-3 text-ink">{it.description}</td>
+                    <td className="px-4 py-3 tabular-nums text-ink">{SERVICE_SAC}</td>
+                    <td className="px-4 py-3 text-right tabular-nums text-ink">{it.qty}</td>
+                    <td className="px-4 py-3 text-right tabular-nums text-ink">{money(it.rate)}</td>
+                    <td className="px-4 py-3 text-right tabular-nums text-ink">{money(it.amount)}</td>
                   </tr>
                 ))
               )}
@@ -302,45 +302,45 @@ export default function InvoiceViewPage() {
 
         {/* Totals with GST split + outstanding */}
         <div className="flex justify-end">
-          <div className="w-full max-w-sm space-y-2 rounded-xl border border-slate-200 bg-white p-5 text-sm">
+          <div className="w-full max-w-sm space-y-2 rounded-xl border border-line bg-surface themed-surface p-5 text-sm">
             <div className="flex justify-between">
-              <span className="text-slate-500">Subtotal (taxable)</span>
-              <span className="tabular-nums text-slate-800">{money(invoice.subtotal)}</span>
+              <span className="text-muted">Subtotal (taxable)</span>
+              <span className="tabular-nums text-ink">{money(invoice.subtotal)}</span>
             </div>
             {tax.intraState ? (
               <>
                 <div className="flex justify-between">
-                  <span className="text-slate-500">CGST</span>
-                  <span className="tabular-nums text-slate-800">{money(tax.cgst)}</span>
+                  <span className="text-muted">CGST</span>
+                  <span className="tabular-nums text-ink">{money(tax.cgst)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-500">SGST</span>
-                  <span className="tabular-nums text-slate-800">{money(tax.sgst)}</span>
+                  <span className="text-muted">SGST</span>
+                  <span className="tabular-nums text-ink">{money(tax.sgst)}</span>
                 </div>
               </>
             ) : (
               <div className="flex justify-between">
-                <span className="text-slate-500">IGST</span>
-                <span className="tabular-nums text-slate-800">{money(tax.igst)}</span>
+                <span className="text-muted">IGST</span>
+                <span className="tabular-nums text-ink">{money(tax.igst)}</span>
               </div>
             )}
-            <div className="flex justify-between border-t border-slate-200 pt-2 text-base font-semibold">
-              <span className="text-slate-900">Total (INR)</span>
-              <span className="tabular-nums text-slate-900">{money(invoice.total)}</span>
+            <div className="flex justify-between border-t border-line pt-2 text-base font-semibold">
+              <span className="text-ink">Total (INR)</span>
+              <span className="tabular-nums text-ink">{money(invoice.total)}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-slate-500">Less: TDS u/s 194J @10%</span>
-              <span className="tabular-nums text-slate-800">− {money(tds)}</span>
+              <span className="text-muted">Less: TDS u/s 194J @10%</span>
+              <span className="tabular-nums text-ink">− {money(tds)}</span>
             </div>
-            <div className="flex justify-between border-t border-slate-100 pt-2 font-medium">
-              <span className="text-slate-700">Net payable after TDS</span>
-              <span className="tabular-nums text-slate-900">{money(netPayable)}</span>
+            <div className="flex justify-between border-t border-line pt-2 font-medium">
+              <span className="text-ink">Net payable after TDS</span>
+              <span className="tabular-nums text-ink">{money(netPayable)}</span>
             </div>
-            <div className="mt-1 flex justify-between border-t border-slate-200 pt-2">
-              <span className="text-slate-500">Received</span>
+            <div className="mt-1 flex justify-between border-t border-line pt-2">
+              <span className="text-muted">Received</span>
               <span className="tabular-nums text-green-600">− {money(received)}</span>
             </div>
-            <div className="flex justify-between border-t border-slate-200 pt-2 text-base font-semibold">
+            <div className="flex justify-between border-t border-line pt-2 text-base font-semibold">
               <span className={outstanding > 0 ? "text-red-600" : "text-green-600"}>Outstanding</span>
               <span className={`tabular-nums ${outstanding > 0 ? "text-red-600" : "text-green-600"}`}>
                 {money(outstanding)}
@@ -350,18 +350,18 @@ export default function InvoiceViewPage() {
         </div>
 
         {/* Amount in words */}
-        <div className="rounded-xl border border-slate-200 bg-white p-4 text-sm">
-          <span className="text-slate-500">Total in words: </span>
-          <span className="font-medium italic text-slate-800">{amountInWords(invoice.total)}</span>
+        <div className="rounded-xl border border-line bg-surface themed-surface p-4 text-sm">
+          <span className="text-muted">Total in words: </span>
+          <span className="font-medium italic text-ink">{amountInWords(invoice.total)}</span>
         </div>
 
         {/* Payment history */}
         {allocations.length > 0 && (
-          <div className="rounded-xl border border-slate-200 bg-white p-5">
-            <p className="mb-3 text-xs font-medium uppercase tracking-wide text-slate-400">
+          <div className="rounded-xl border border-line bg-surface themed-surface p-5">
+            <p className="mb-3 text-xs font-medium uppercase tracking-wide text-faint">
               Payments received
             </p>
-            <ul className="space-y-1 text-sm text-slate-600">
+            <ul className="space-y-1 text-sm text-muted">
               {allocations.map((a, i) => (
                 <li key={i} className="flex justify-between">
                   <span>
@@ -376,11 +376,11 @@ export default function InvoiceViewPage() {
         )}
 
         {/* Bank details (masked) */}
-        <div className="rounded-xl border border-slate-200 bg-white p-5">
-          <p className="mb-2 text-xs font-medium uppercase tracking-wide text-slate-400">
-            Bank details <span className="normal-case text-slate-400">(masked)</span>
+        <div className="rounded-xl border border-line bg-surface themed-surface p-5">
+          <p className="mb-2 text-xs font-medium uppercase tracking-wide text-faint">
+            Bank details <span className="normal-case text-faint">(masked)</span>
           </p>
-          <dl className="grid gap-1 text-sm text-slate-600 sm:grid-cols-2">
+          <dl className="grid gap-1 text-sm text-muted sm:grid-cols-2">
             <div>Bank: HDFC Bank Ltd</div>
             <div>A/c No: ••••••••••</div>
             <div>IFSC: HDFC0••••••</div>
@@ -389,8 +389,8 @@ export default function InvoiceViewPage() {
         </div>
 
         {invoice.notes && (
-          <div className="rounded-xl border border-slate-200 bg-white p-5 text-sm text-slate-600">
-            <p className="mb-1 text-xs font-medium uppercase tracking-wide text-slate-400">Notes</p>
+          <div className="rounded-xl border border-line bg-surface themed-surface p-5 text-sm text-muted">
+            <p className="mb-1 text-xs font-medium uppercase tracking-wide text-faint">Notes</p>
             {invoice.notes}
           </div>
         )}

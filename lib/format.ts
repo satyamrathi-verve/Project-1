@@ -202,12 +202,12 @@ export function amountInWords(n: number | null | undefined): string {
 export function statusPill(status: string): string {
   switch (status) {
     case "paid":
-      return "bg-green-100 text-green-700";
+      return "bg-green-500/15 text-green-600";
     case "overdue":
-      return "bg-red-100 text-red-700";
+      return "bg-red-500/15 text-red-600";
     case "partial":
-      return "bg-amber-100 text-amber-700";
+      return "bg-amber-500/15 text-amber-600";
     default: // open
-      return "bg-slate-100 text-slate-600";
+      return "bg-surface2 text-muted";
   }
 }
