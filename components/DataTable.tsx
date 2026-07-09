@@ -16,10 +16,16 @@ export function DataTable<T extends { id: string }>({
   columns,
   rows,
   empty = "Nothing here yet.",
+  rowClassName,
+  onRowClick,
 }: {
   columns: Column<T>[];
   rows: T[];
   empty?: string;
+  /** Optional extra classes per row (e.g. red for overdue). */
+  rowClassName?: (row: T) => string;
+  /** Optional click handler for a whole row (e.g. open the detail screen). */
+  onRowClick?: (row: T) => void;
 }) {
   return (
     <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
@@ -42,7 +48,13 @@ export function DataTable<T extends { id: string }>({
             </tr>
           ) : (
             rows.map((row) => (
-              <tr key={row.id} className="border-b border-slate-100 last:border-0 hover:bg-slate-50">
+              <tr
+                key={row.id}
+                onClick={onRowClick ? () => onRowClick(row) : undefined}
+                className={`border-b border-slate-100 last:border-0 hover:bg-slate-50 ${
+                  onRowClick ? "cursor-pointer" : ""
+                } ${rowClassName ? rowClassName(row) : ""}`}
+              >
                 {columns.map((c) => (
                   <td key={c.key} className={`px-4 py-3 text-slate-700 ${c.className ?? ""}`}>
                     {c.render ? c.render(row) : String((row as Record<string, unknown>)[c.key] ?? "")}
