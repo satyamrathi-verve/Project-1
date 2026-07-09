@@ -1,4 +1,4 @@
-import { Fragment, type ReactNode } from "react";
+import { Fragment, useEffect, useId, useRef, type ReactNode } from "react";
 
 export interface Column<T> {
   key: string;
@@ -50,6 +50,22 @@ export function DataTable<T extends { id: string }>({
   sortDir?: "asc" | "desc";
   onSort?: (key: string) => void;
 }) {
+  const tableId = useId();
+  const rowRefs = useRef<Record<string, HTMLTableRowElement | null>>({});
+  const focusedRowId = useRef<string | null>(null);
+  const prevExpandedRowId = useRef<string | null>(expandedRowId ?? null);
+
+  // If the row whose expanded content had focus just collapsed (or a
+  // different row expanded instead), that focused input is now gone from the
+  // DOM. Bring focus back to the trigger row instead of losing it to <body>.
+  useEffect(() => {
+    const prev = prevExpandedRowId.current;
+    if (prev && prev !== expandedRowId && focusedRowId.current === prev) {
+      rowRefs.current[prev]?.focus();
+    }
+    prevExpandedRowId.current = expandedRowId ?? null;
+  }, [expandedRowId]);
+
   return (
     <div className="themed-surface overflow-x-auto overflow-y-hidden rounded-xl border border-line bg-surface">
       <table className="w-full text-sm">
@@ -71,7 +87,12 @@ export function DataTable<T extends { id: string }>({
             ))}
           </tr>
         </thead>
-        <tbody>
+        <tbody
+          onFocus={(e) => {
+            const el = (e.target as HTMLElement).closest("[data-row-id]");
+            focusedRowId.current = el?.getAttribute("data-row-id") ?? null;
+          }}
+        >
           {rows.length === 0 ? (
             <tr>
               <td colSpan={columns.length} className="px-4 py-10 text-center text-faint">
@@ -80,10 +101,15 @@ export function DataTable<T extends { id: string }>({
             </tr>
           ) : (
             rows.map((row) => {
-              const expanded = renderExpanded && expandedRowId === row.id;
+              const isExpandedRow = expandedRowId === row.id;
+              const panelId = `${tableId}-panel-${row.id}`;
               return (
                 <Fragment key={row.id}>
                   <tr
+                    ref={(el) => {
+                      rowRefs.current[row.id] = el;
+                    }}
+                    data-row-id={row.id}
                     onClick={onRowClick ? () => onRowClick(row) : undefined}
                     onKeyDown={
                       onRowClick
@@ -97,7 +123,8 @@ export function DataTable<T extends { id: string }>({
                     }
                     role={onRowClick ? "button" : undefined}
                     tabIndex={onRowClick ? 0 : undefined}
-                    aria-expanded={renderExpanded ? expanded : undefined}
+                    aria-expanded={renderExpanded ? isExpandedRow : undefined}
+                    aria-controls={renderExpanded ? panelId : undefined}
                     className={`border-b border-line last:border-0 hover:bg-surface2 ${
                       onRowClick ? "cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-brand" : ""
                     } ${rowClassName ? rowClassName(row) : ""}`}
@@ -108,8 +135,8 @@ export function DataTable<T extends { id: string }>({
                       </td>
                     ))}
                   </tr>
-                  {expanded && (
-                    <tr className="border-b border-line bg-surface2/60 last:border-0">
+                  {renderExpanded && isExpandedRow && (
+                    <tr id={panelId} data-row-id={row.id} className="border-b border-line bg-surface2/60 last:border-0">
                       <td colSpan={columns.length} className="px-4 py-4">
                         {renderExpanded(row)}
                       </td>
