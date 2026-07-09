@@ -1,344 +1,251 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { supabase, isConfigured } from "@/lib/supabase";
 import { PageHeader } from "@/components/PageHeader";
 import { NotConfigured } from "@/components/NotConfigured";
 import { money, isOverdue, daysLate } from "@/lib/format";
+import { Card, KpiTile, VBars, GroupedVBars, Donut, HBars, ComingSoon } from "./charts";
 
-interface InvoiceRow {
-  id: string;
-  invoice_date: string;
-  due_date: string | null;
-  total: number;
-  status: string;
-  customers: { name: string } | null;
-}
-interface ReceiptRow {
-  receipt_date: string;
-  amount: number;
-}
+interface InvoiceRow { id: string; invoice_date: string; due_date: string | null; total: number; status: string; customer_id: string; customers: { name: string } | null; }
+interface ReceiptRow { receipt_date: string; amount: number; mode: string; }
+interface CustomerRow { id: string; name: string; credit_limit: number; }
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const STORE_KEY = "ar-dash-config-v3";
 
-/* Count-up for KPI numbers. */
-function useCountUp(target: number, run: boolean, ms = 1000) {
-  const [val, setVal] = useState(0);
-  useEffect(() => {
-    if (!run) return;
-    let raf = 0;
-    const start = performance.now();
-    const from = 0;
-    const tick = (now: number) => {
-      const p = Math.min(1, (now - start) / ms);
-      const eased = 1 - Math.pow(1 - p, 3);
-      setVal(from + (target - from) * eased);
-      if (p < 1) raf = requestAnimationFrame(tick);
-      else setVal(target);
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, [target, run, ms]);
-  return val;
+/* Widget catalogue. render() returns the inner content for the given metrics. */
+interface Metrics {
+  run: boolean;
+  customerCount: number; invoiceCount: number;
+  dso: number; cei: number; totalOutstanding: number; overduePct: number; overdueOutstanding: number;
+  ageing: { label: string; value: number; color: string }[];
+  statusSeg: { label: string; value: number; color: string }[];
+  months: string[]; invoicedByMonth: number[]; collectedByMonth: number[];
+  topOverdue: { name: string; value: number }[];
+  receiptsMode: { label: string; value: number; color: string }[]; receiptsTotal: number; receiptCount: number;
+  creditUtil: { name: string; value: number; label: string; danger: boolean }[];
+  badDebt90: number; badDebtPct: number; badDebtCustomers: { name: string; value: number }[];
+  forecast: { label: string; value: number; color: string }[];
 }
 
-function Tile({ label, target, sub, accent, isMoney, run }: {
-  label: string; target: number; sub: string; accent: string; isMoney?: boolean; run: boolean;
-}) {
-  const v = useCountUp(target, run);
-  return (
-    <div className="rounded-xl border border-slate-200 bg-white p-5 transition-shadow hover:shadow-md">
-      <p className="text-xs font-medium uppercase tracking-wide text-slate-400">{label}</p>
-      <p className={`mt-2 text-3xl font-bold tabular-nums ${accent}`}>
-        {isMoney ? money(v) : Math.round(v).toLocaleString("en-IN")}
-      </p>
-      <p className="mt-1 text-xs text-slate-500">{sub}</p>
+interface WidgetDef { id: string; title: string; subtitle?: string; span: 1 | 2 | 3; comingSoon?: string; kpi?: boolean; render?: (m: Metrics) => ReactNode; }
+
+const WIDGETS: WidgetDef[] = [
+  { id: "kpis", title: "Key AR metrics", span: 3, kpi: true },
+  { id: "ageing", title: "AR Ageing — outstanding by bucket", subtitle: "How much is owed, grouped by how late it is (INR). Blue = current, amber = watch, red = critical.", span: 2, render: (m) => <VBars bars={m.ageing} run={m.run} /> },
+  { id: "status", title: "Invoices by status", subtitle: "Portfolio mix across all invoices.", span: 1, render: (m) => <Donut segments={m.statusSeg} total={m.invoiceCount} run={m.run} /> },
+  { id: "trend", title: "Invoiced vs Collected — by month", subtitle: "Cash raised vs cash received each month (INR).", span: 2, render: (m) => <GroupedVBars categories={m.months} seriesA={{ name: "Invoiced", color: "#2f6bff", values: m.invoicedByMonth }} seriesB={{ name: "Collected", color: "#16a34a", values: m.collectedByMonth }} run={m.run} /> },
+  { id: "topOverdue", title: "Top overdue customers", subtitle: "Who to chase first — overdue outstanding (INR).", span: 1, render: (m) => <HBars rows={m.topOverdue} run={m.run} /> },
+  { id: "receiptsMode", title: "Receipts by mode", subtitle: "How customers are paying.", span: 1, render: (m) => <Donut segments={m.receiptsMode} total={m.receiptsTotal} run={m.run} centerLabel={`${m.receiptCount}`} valueFmt={money} /> },
+  { id: "creditUtil", title: "Credit-limit utilisation", subtitle: "Outstanding vs each customer's credit limit. Red = over limit.", span: 2, render: (m) => <HBars rows={m.creditUtil} run={m.run} /> },
+  { id: "badDebt", title: "Bad-debt risk (90+ days)", subtitle: "Outstanding past 90 days — highest risk of turning bad.", span: 1, render: (m) => (
+    <div>
+      <p className="text-3xl font-bold tabular-nums text-red-600">{money(m.badDebt90)}</p>
+      <p className="mb-4 text-xs text-slate-500">{m.badDebtPct.toFixed(1)}% of total outstanding</p>
+      <HBars rows={m.badDebtCustomers} run={m.run} />
     </div>
-  );
-}
+  ) },
+  { id: "cashForecast", title: "Cash forecast — expected inflows", subtitle: "Outstanding grouped by when it's due (INR). A dashboard summary of expected collections.", span: 2, render: (m) => <VBars bars={m.forecast} run={m.run} /> },
+  { id: "glSales", title: "GL-head-wise sales", span: 1, comingSoon: "Invoices aren't linked to GL accounts in the data yet, so sales can't be split by ledger head." },
+  { id: "collector", title: "Collector performance", span: 1, comingSoon: "Needs a collector/agent assigned per invoice or receipt — not captured in the data yet." },
+  { id: "dispute", title: "Dispute rate", span: 1, comingSoon: "Needs a 'disputed' flag on invoices — not captured in the data yet." },
+];
 
-/* One vertical bar with gridlines behind, gradient fill, staggered grow + hover. */
-function BarPlot({ title, subtitle, bars, run }: {
-  title: string; subtitle: string; run: boolean;
-  bars: { label: string; value: number; color: string }[];
-}) {
-  const max = Math.max(1, ...bars.map((b) => b.value));
-  return (
-    <div className="rounded-xl border border-slate-200 bg-white p-5">
-      <h3 className="text-sm font-semibold text-slate-700">{title}</h3>
-      <p className="mb-4 text-xs text-slate-400">{subtitle}</p>
-      <div className="relative h-56">
-        {/* gridlines */}
-        {[0, 25, 50, 75, 100].map((g) => (
-          <div key={g} className="absolute inset-x-0 border-t border-dashed border-slate-100" style={{ bottom: `${g}%` }} />
-        ))}
-        <div className="absolute inset-0 flex items-end justify-between gap-3 pb-6">
-          {bars.map((b, i) => (
-            <div key={b.label} className="group flex flex-1 flex-col items-center justify-end gap-2" title={`${b.label}: ${money(b.value)}`}>
-              <span className="text-xs font-semibold tabular-nums text-slate-700 opacity-80 transition-opacity group-hover:opacity-100">
-                {b.value > 0 ? Math.round(b.value).toLocaleString("en-IN") : ""}
-              </span>
-              <div
-                className="w-full rounded-t-md shadow-sm transition-[height,filter] duration-700 ease-out group-hover:brightness-110"
-                style={{
-                  height: run ? `${(b.value / max) * 100}%` : "0%",
-                  minHeight: b.value > 0 ? 4 : 0,
-                  transitionDelay: `${i * 90}ms`,
-                  backgroundImage: `linear-gradient(to top, ${b.color}, ${b.color}bb)`,
-                }}
-              />
-            </div>
-          ))}
-        </div>
-        <div className="absolute inset-x-0 bottom-0 flex justify-between gap-3">
-          {bars.map((b) => (
-            <span key={b.label} className="flex-1 text-center text-[11px] leading-tight text-slate-500">{b.label}</span>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
+const DEFAULT_WIDGETS = ["kpis", "ageing", "status", "trend", "topOverdue", "receiptsMode", "creditUtil", "badDebt", "cashForecast", "glSales"];
 
-/* Grouped bars: two series per category (Invoiced vs Collected). */
-function GroupedBars({ title, subtitle, categories, seriesA, seriesB, run }: {
-  title: string; subtitle: string; run: boolean;
-  categories: string[];
-  seriesA: { name: string; color: string; values: number[] };
-  seriesB: { name: string; color: string; values: number[] };
-}) {
-  const max = Math.max(1, ...seriesA.values, ...seriesB.values);
-  return (
-    <div className="rounded-xl border border-slate-200 bg-white p-5">
-      <div className="mb-1 flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-slate-700">{title}</h3>
-        <div className="flex gap-3 text-[11px] text-slate-500">
-          <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm" style={{ background: seriesA.color }} />{seriesA.name}</span>
-          <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm" style={{ background: seriesB.color }} />{seriesB.name}</span>
-        </div>
-      </div>
-      <p className="mb-4 text-xs text-slate-400">{subtitle}</p>
-      <div className="relative h-56">
-        {[0, 25, 50, 75, 100].map((g) => (
-          <div key={g} className="absolute inset-x-0 border-t border-dashed border-slate-100" style={{ bottom: `${g}%` }} />
-        ))}
-        <div className="absolute inset-0 flex items-end justify-between gap-4 pb-6">
-          {categories.map((cat, i) => (
-            <div key={cat} className="flex flex-1 flex-col items-center justify-end">
-              <div className="flex h-full w-full items-end justify-center gap-1">
-                {[seriesA, seriesB].map((s, si) => (
-                  <div
-                    key={s.name}
-                    className="w-1/2 max-w-[26px] rounded-t shadow-sm transition-[height] duration-700 ease-out hover:brightness-110"
-                    title={`${cat} · ${s.name}: ${money(s.values[i])}`}
-                    style={{
-                      height: run ? `${(s.values[i] / max) * 100}%` : "0%",
-                      minHeight: s.values[i] > 0 ? 3 : 0,
-                      transitionDelay: `${i * 80 + si * 40}ms`,
-                      background: s.color,
-                    }}
-                  />
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-        <div className="absolute inset-x-0 bottom-0 flex justify-between gap-4">
-          {categories.map((cat) => (
-            <span key={cat} className="flex-1 text-center text-[11px] text-slate-500">{cat}</span>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* Donut with draw-in animation. */
-function StatusDonut({ segments, total, run }: {
-  segments: { label: string; value: number; color: string }[]; total: number; run: boolean;
-}) {
-  let offset = 25;
-  return (
-    <div className="rounded-xl border border-slate-200 bg-white p-5">
-      <h3 className="text-sm font-semibold text-slate-700">Invoices by status</h3>
-      <p className="mb-4 text-xs text-slate-400">Portfolio mix across all invoices.</p>
-      <div className="flex items-center gap-6">
-        <svg viewBox="0 0 36 36" className="h-32 w-32 -rotate-90">
-          <circle cx="18" cy="18" r="15.915" fill="none" stroke="#f1f5f9" strokeWidth="3.6" />
-          {segments.map((s, i) => {
-            const pct = total ? (s.value / total) * 100 : 0;
-            const seg = (
-              <circle
-                key={s.label} cx="18" cy="18" r="15.915" fill="none" stroke={s.color} strokeWidth="3.6"
-                strokeDasharray={run ? `${pct} ${100 - pct}` : `0 100`}
-                strokeDashoffset={offset} strokeLinecap="round"
-                style={{ transition: "stroke-dasharray 900ms ease-out", transitionDelay: `${i * 150}ms` }}
-              />
-            );
-            offset -= pct;
-            return seg;
-          })}
-          <text x="18" y="18" transform="rotate(90 18 18)" textAnchor="middle" dominantBaseline="central" className="fill-slate-800 text-[6px] font-bold">
-            {total}
-          </text>
-        </svg>
-        <ul className="space-y-1.5 text-sm">
-          {segments.map((s) => (
-            <li key={s.label} className="flex items-center gap-2 text-slate-600">
-              <span className="h-2.5 w-2.5 rounded-sm" style={{ background: s.color }} />
-              <span className="capitalize">{s.label}</span>
-              <span className="ml-auto font-semibold tabular-nums text-slate-800">{s.value}</span>
-            </li>
-          ))}
-        </ul>
-      </div>
-    </div>
-  );
-}
-
-/* Horizontal bars — top customers by outstanding. */
-function TopCustomers({ rows, run }: { rows: { name: string; value: number }[]; run: boolean }) {
-  const max = Math.max(1, ...rows.map((r) => r.value));
-  return (
-    <div className="rounded-xl border border-slate-200 bg-white p-5">
-      <h3 className="text-sm font-semibold text-slate-700">Top customers by outstanding</h3>
-      <p className="mb-4 text-xs text-slate-400">Who owes the most right now (INR).</p>
-      {rows.length === 0 ? (
-        <p className="py-6 text-center text-sm text-slate-400">Nothing outstanding. 🎉</p>
-      ) : (
-        <ul className="space-y-3">
-          {rows.map((r, i) => (
-            <li key={r.name} title={`${r.name}: ${money(r.value)}`}>
-              <div className="mb-1 flex justify-between text-xs">
-                <span className="truncate text-slate-600">{r.name}</span>
-                <span className="ml-2 shrink-0 font-semibold tabular-nums text-slate-800">{money(r.value)}</span>
-              </div>
-              <div className="h-2.5 overflow-hidden rounded-full bg-slate-100">
-                <div
-                  className="h-full rounded-full transition-[width] duration-700 ease-out"
-                  style={{ width: run ? `${(r.value / max) * 100}%` : "0%", transitionDelay: `${i * 90}ms`, backgroundImage: "linear-gradient(to right, #2f6bff, #1f4ed8)" }}
-                />
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
-}
+interface Board { id: string; name: string; widgets: string[]; }
+interface Config { activeId: string; boards: Board[]; }
+const defaultConfig = (): Config => ({ activeId: "default", boards: [{ id: "default", name: "AR Overview", widgets: [...DEFAULT_WIDGETS] }] });
 
 export default function DashboardPage() {
   const [invoices, setInvoices] = useState<InvoiceRow[]>([]);
   const [receipts, setReceipts] = useState<ReceiptRow[]>([]);
+  const [customers, setCustomers] = useState<CustomerRow[]>([]);
   const [receivedByInvoice, setReceivedByInvoice] = useState<Record<string, number>>({});
-  const [customerCount, setCustomerCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [animate, setAnimate] = useState(false);
-  const [lastUpdate, setLastUpdate] = useState<string>("");
+  const [lastUpdate, setLastUpdate] = useState("");
   const started = useRef(false);
+
+  // Dashboard config (multi-board + customise), persisted to localStorage.
+  const [config, setConfig] = useState<Config>(defaultConfig);
+  const [customise, setCustomise] = useState(false);
+  const configLoaded = useRef(false);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(STORE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw) as Config;
+        if (parsed.boards?.length && parsed.boards.every((b) => Array.isArray(b.widgets))) setConfig(parsed);
+      }
+    } catch { /* ignore */ }
+    configLoaded.current = true;
+  }, []);
+  useEffect(() => {
+    if (configLoaded.current) {
+      try { localStorage.setItem(STORE_KEY, JSON.stringify(config)); } catch { /* ignore */ }
+    }
+  }, [config]);
 
   const load = useCallback(async () => {
     if (!supabase) return;
-    const client = supabase;
-    const [inv, alloc, rec, custCount] = await Promise.all([
-      client.from("invoices").select("id, invoice_date, due_date, total, status, customers(name)").order("invoice_date", { ascending: false }),
-      client.from("receipt_allocations").select("invoice_id, amount"),
-      client.from("receipts").select("receipt_date, amount"),
-      client.from("customers").select("id", { count: "exact", head: true }),
+    const c = supabase;
+    const [inv, alloc, rec, cust] = await Promise.all([
+      c.from("invoices").select("id, invoice_date, due_date, total, status, customer_id, customers(name)").order("invoice_date", { ascending: false }),
+      c.from("receipt_allocations").select("invoice_id, amount"),
+      c.from("receipts").select("receipt_date, amount, mode"),
+      c.from("customers").select("id, name, credit_limit"),
     ]);
     setInvoices((inv.data as unknown as InvoiceRow[]) ?? []);
     setReceipts((rec.data as unknown as ReceiptRow[]) ?? []);
+    setCustomers((cust.data as unknown as CustomerRow[]) ?? []);
     const map: Record<string, number> = {};
-    ((alloc.data as { invoice_id: string; amount: number }[]) ?? []).forEach((a) => {
-      map[a.invoice_id] = (map[a.invoice_id] ?? 0) + Number(a.amount);
-    });
+    ((alloc.data as { invoice_id: string; amount: number }[]) ?? []).forEach((a) => { map[a.invoice_id] = (map[a.invoice_id] ?? 0) + Number(a.amount); });
     setReceivedByInvoice(map);
-    setCustomerCount(custCount.count ?? 0);
-    const now = new Date();
-    setLastUpdate(`${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}:${String(now.getSeconds()).padStart(2, "0")}`);
+    const n = new Date();
+    setLastUpdate(`${String(n.getHours()).padStart(2, "0")}:${String(n.getMinutes()).padStart(2, "0")}:${String(n.getSeconds()).padStart(2, "0")}`);
     setLoading(false);
   }, []);
 
-  // Initial load + real-time subscription (re-fetch on any change to the AR tables).
   useEffect(() => {
-    if (!supabase) {
-      setLoading(false);
-      return;
-    }
+    if (!supabase) { setLoading(false); return; }
     load();
-    const client = supabase;
-    // Instant updates when the project has realtime enabled for these tables…
-    const channel = client
-      .channel("dashboard-live")
+    const c = supabase;
+    const ch = c.channel("dashboard-live")
       .on("postgres_changes", { event: "*", schema: "public", table: "invoices" }, load)
       .on("postgres_changes", { event: "*", schema: "public", table: "receipts" }, load)
       .on("postgres_changes", { event: "*", schema: "public", table: "receipt_allocations" }, load)
       .subscribe();
-    // …plus a gentle poll so it stays current regardless.
     const poll = setInterval(load, 15000);
-    return () => {
-      client.removeChannel(channel);
-      clearInterval(poll);
-    };
+    return () => { c.removeChannel(ch); clearInterval(poll); };
   }, [load]);
 
   useEffect(() => {
-    if (!loading && !started.current) {
-      started.current = true;
-      const t = setTimeout(() => setAnimate(true), 80);
-      return () => clearTimeout(t);
-    }
+    if (!loading && !started.current) { started.current = true; const t = setTimeout(() => setAnimate(true), 80); return () => clearTimeout(t); }
   }, [loading]);
 
+  // ---- Metrics ----
   const outstandingOf = (r: InvoiceRow) => Math.max(0, Number(r.total) - (receivedByInvoice[r.id] ?? 0));
-  const effectiveStatus = (r: InvoiceRow) => (isOverdue(r.status, r.due_date) ? "overdue" : r.status);
-
-  const overdue = invoices.filter((r) => isOverdue(r.status, r.due_date));
-  const totalOutstanding = invoices.filter((r) => r.status !== "paid").reduce((s, r) => s + outstandingOf(r), 0);
-  const overdueOutstanding = overdue.reduce((s, r) => s + outstandingOf(r), 0);
-
-  // Ageing buckets.
+  const effStatus = (r: InvoiceRow) => (isOverdue(r.status, r.due_date) ? "overdue" : r.status);
   const unpaid = invoices.filter((r) => r.status !== "paid");
-  const buckets = [
+  const overdue = invoices.filter((r) => isOverdue(r.status, r.due_date));
+  const totalOutstanding = unpaid.reduce((s, r) => s + outstandingOf(r), 0);
+  const overdueOutstanding = overdue.reduce((s, r) => s + outstandingOf(r), 0);
+  const totalInvoiced = invoices.reduce((s, r) => s + Number(r.total), 0);
+  const collectedTotal = Object.values(receivedByInvoice).reduce((s, v) => s + v, 0);
+
+  // DSO (estimate): outstanding / credit sales × days in period.
+  const dates = invoices.map((r) => new Date(r.invoice_date).getTime()).filter((t) => !isNaN(t));
+  const periodDays = dates.length ? Math.max(1, Math.round((Math.max(...dates) - Math.min(...dates)) / 86400000)) : 1;
+  const dso = totalInvoiced > 0 ? (totalOutstanding / totalInvoiced) * periodDays : 0;
+  // CEI (estimate): collected-on-due / amount-due × 100.
+  const dueInvoices = invoices.filter((r) => r.due_date && new Date(r.due_date) <= new Date());
+  const amountDue = dueInvoices.reduce((s, r) => s + Number(r.total), 0);
+  const collectedOnDue = dueInvoices.reduce((s, r) => s + (receivedByInvoice[r.id] ?? 0), 0);
+  const cei = amountDue > 0 ? Math.min(100, (collectedOnDue / amountDue) * 100) : 100;
+  const overduePct = totalOutstanding > 0 ? (overdueOutstanding / totalOutstanding) * 100 : 0;
+
+  const ageing = [
     { label: "Not due", color: "#2f6bff", value: unpaid.filter((r) => !isOverdue(r.status, r.due_date)).reduce((s, r) => s + outstandingOf(r), 0) },
-    { label: "0–30", color: "#2f6bff", value: unpaid.filter((r) => { const d = daysLate(r.due_date); return isOverdue(r.status, r.due_date) && d >= 1 && d <= 30; }).reduce((s, r) => s + outstandingOf(r), 0) },
-    { label: "31–60", color: "#d97706", value: unpaid.filter((r) => { const d = daysLate(r.due_date); return d >= 31 && d <= 60; }).reduce((s, r) => s + outstandingOf(r), 0) },
-    { label: "61–90", color: "#d97706", value: unpaid.filter((r) => { const d = daysLate(r.due_date); return d >= 61 && d <= 90; }).reduce((s, r) => s + outstandingOf(r), 0) },
+    { label: "0–30", color: "#2f6bff", value: unpaid.filter((r) => isOverdue(r.status, r.due_date) && daysLate(r.due_date) <= 30).reduce((s, r) => s + outstandingOf(r), 0) },
+    { label: "31–60", color: "#d97706", value: unpaid.filter((r) => daysLate(r.due_date) >= 31 && daysLate(r.due_date) <= 60).reduce((s, r) => s + outstandingOf(r), 0) },
+    { label: "61–90", color: "#d97706", value: unpaid.filter((r) => daysLate(r.due_date) >= 61 && daysLate(r.due_date) <= 90).reduce((s, r) => s + outstandingOf(r), 0) },
     { label: "90+", color: "#dc2626", value: unpaid.filter((r) => daysLate(r.due_date) > 90).reduce((s, r) => s + outstandingOf(r), 0) },
   ];
 
-  // Status donut.
   const statusColors: Record<string, string> = { open: "#64748b", partial: "#d97706", overdue: "#dc2626", paid: "#16a34a" };
-  const statusSegments = ["open", "partial", "overdue", "paid"]
-    .map((st) => ({ label: st, color: statusColors[st], value: invoices.filter((r) => effectiveStatus(r) === st).length }))
-    .filter((s) => s.value > 0);
+  const statusSeg = ["open", "partial", "overdue", "paid"].map((st) => ({ label: st, color: statusColors[st], value: invoices.filter((r) => effStatus(r) === st).length })).filter((s) => s.value > 0);
 
-  // Top customers by outstanding.
-  const byCustomer: Record<string, number> = {};
-  unpaid.forEach((r) => { const n = r.customers?.name ?? "—"; byCustomer[n] = (byCustomer[n] ?? 0) + outstandingOf(r); });
-  const topCustomers = Object.entries(byCustomer).map(([name, value]) => ({ name, value })).filter((r) => r.value > 0).sort((a, b) => b.value - a.value).slice(0, 5);
+  const monthKey = (d: string) => d.slice(0, 7);
+  const mset = new Set<string>(); invoices.forEach((r) => mset.add(monthKey(r.invoice_date))); receipts.forEach((r) => mset.add(monthKey(r.receipt_date)));
+  const monthsArr = Array.from(mset).sort();
+  const months = monthsArr.map((m) => MONTHS[parseInt(m.slice(5, 7), 10) - 1]);
+  const invoicedByMonth = monthsArr.map((m) => invoices.filter((r) => monthKey(r.invoice_date) === m).reduce((s, r) => s + Number(r.total), 0));
+  const collectedByMonth = monthsArr.map((m) => receipts.filter((r) => monthKey(r.receipt_date) === m).reduce((s, r) => s + Number(r.amount), 0));
 
-  // Monthly invoiced vs collected.
-  const monthKey = (d: string) => d.slice(0, 7); // yyyy-mm
-  const monthsSet = new Set<string>();
-  invoices.forEach((r) => monthsSet.add(monthKey(r.invoice_date)));
-  receipts.forEach((r) => monthsSet.add(monthKey(r.receipt_date)));
-  const months = Array.from(monthsSet).sort();
-  const invoicedByMonth = months.map((m) => invoices.filter((r) => monthKey(r.invoice_date) === m).reduce((s, r) => s + Number(r.total), 0));
-  const collectedByMonth = months.map((m) => receipts.filter((r) => monthKey(r.receipt_date) === m).reduce((s, r) => s + Number(r.amount), 0));
-  const monthLabels = months.map((m) => MONTHS[parseInt(m.slice(5, 7), 10) - 1]);
+  const custName: Record<string, string> = {}; customers.forEach((c) => (custName[c.id] = c.name));
+  const overdueByCust: Record<string, number> = {};
+  overdue.forEach((r) => { const n = r.customers?.name ?? custName[r.customer_id] ?? "—"; overdueByCust[n] = (overdueByCust[n] ?? 0) + outstandingOf(r); });
+  const topOverdue = Object.entries(overdueByCust).map(([name, value]) => ({ name, value })).filter((r) => r.value > 0).sort((a, b) => b.value - a.value).slice(0, 5);
+
+  const modeColors: Record<string, string> = { cash: "#2f6bff", cheque: "#16a34a", upi: "#d97706", neft: "#7c3aed" };
+  const modeAgg: Record<string, number> = {};
+  receipts.forEach((r) => { modeAgg[r.mode] = (modeAgg[r.mode] ?? 0) + Number(r.amount); });
+  const receiptsMode = Object.entries(modeAgg).map(([label, value]) => ({ label, value, color: modeColors[label] ?? "#64748b" }));
+  const receiptsTotal = receipts.reduce((s, r) => s + Number(r.amount), 0);
+
+  const outByCust: Record<string, number> = {};
+  unpaid.forEach((r) => { outByCust[r.customer_id] = (outByCust[r.customer_id] ?? 0) + outstandingOf(r); });
+  const creditUtil = customers.filter((c) => c.credit_limit > 0).map((c) => {
+    const out = outByCust[c.id] ?? 0; const pct = (out / c.credit_limit) * 100;
+    return { name: c.name, value: pct, label: `${pct.toFixed(0)}%`, danger: pct > 100 };
+  }).filter((r) => r.value > 0).sort((a, b) => b.value - a.value).slice(0, 6);
+
+  const badDebt90 = ageing[4].value;
+  const badDebtPct = totalOutstanding > 0 ? (badDebt90 / totalOutstanding) * 100 : 0;
+  const bd: Record<string, number> = {};
+  unpaid.filter((r) => daysLate(r.due_date) > 90).forEach((r) => { const n = r.customers?.name ?? custName[r.customer_id] ?? "—"; bd[n] = (bd[n] ?? 0) + outstandingOf(r); });
+  const badDebtCustomers = Object.entries(bd).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value).slice(0, 4);
+
+  // Cash forecast: overdue now + next 3 months by due month.
+  const now = new Date(); const curM = now.getMonth(); const curY = now.getFullYear();
+  const monthIndex = (d: Date) => (d.getFullYear() - curY) * 12 + (d.getMonth() - curM);
+  const fc = [0, 0, 0, 0]; // [overdue, this month, +1, +2]
+  unpaid.forEach((r) => {
+    if (!r.due_date) return;
+    const due = new Date(r.due_date); const mi = monthIndex(due);
+    if (due < now) fc[0] += outstandingOf(r);       // all overdue (any past due date)
+    else if (mi === 0) fc[1] += outstandingOf(r);   // rest of this month, not yet due
+    else if (mi === 1) fc[2] += outstandingOf(r);
+    else if (mi === 2) fc[3] += outstandingOf(r);
+    // due beyond +2 months isn't shown in this 4-bar summary
+  });
+  const forecast = [
+    { label: "Overdue", color: "#dc2626", value: fc[0] },
+    { label: MONTHS[curM], color: "#2f6bff", value: fc[1] },
+    { label: MONTHS[(curM + 1) % 12], color: "#2f6bff", value: fc[2] },
+    { label: MONTHS[(curM + 2) % 12], color: "#2f6bff", value: fc[3] },
+  ];
+
+  const metrics: Metrics = {
+    run: animate, customerCount: customers.length, invoiceCount: invoices.length,
+    dso, cei, totalOutstanding, overduePct, overdueOutstanding,
+    ageing, statusSeg, months, invoicedByMonth, collectedByMonth, topOverdue,
+    receiptsMode, receiptsTotal, receiptCount: receipts.length, creditUtil, badDebt90, badDebtPct, badDebtCustomers, forecast,
+  };
+
+  // ---- Config helpers ----
+  const active = config.boards.find((b) => b.id === config.activeId) ?? config.boards[0];
+  const update = (fn: (b: Board) => Board) => setConfig((c) => ({ ...c, boards: c.boards.map((b) => (b.id === active.id ? fn(b) : b)) }));
+  const move = (idx: number, dir: -1 | 1) => update((b) => { const w = [...b.widgets]; const j = idx + dir; if (j < 0 || j >= w.length) return b; [w[idx], w[j]] = [w[j], w[idx]]; return { ...b, widgets: w }; });
+  const remove = (id: string) => update((b) => ({ ...b, widgets: b.widgets.filter((x) => x !== id) }));
+  const add = (id: string) => update((b) => ({ ...b, widgets: [...b.widgets, id] }));
+  const resetBoard = () => update((b) => ({ ...b, widgets: [...DEFAULT_WIDGETS] }));
+  const newBoard = () => { const name = window.prompt("Name your new dashboard:", "My dashboard"); if (!name) return; const id = `b${Date.now()}`; setConfig((c) => ({ activeId: id, boards: [...c.boards, { id, name, widgets: [...DEFAULT_WIDGETS] }] })); };
+  const renameBoard = () => { const name = window.prompt("Rename dashboard:", active.name); if (!name) return; update((b) => ({ ...b, name })); };
+  const deleteBoard = () => { if (config.boards.length <= 1) return; if (!window.confirm(`Delete "${active.name}"?`)) return; setConfig((c) => { const boards = c.boards.filter((b) => b.id !== active.id); return { activeId: boards[0].id, boards }; }); };
+
+  const kpiRow = (
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <KpiTile label="DSO (est.)" target={metrics.dso} sub="avg days to collect · <45 healthy" accent={metrics.dso <= 45 ? "text-green-600" : "text-red-600"} format={(n) => `${Math.round(n)} d`} run={animate} />
+      <KpiTile label="CEI (est.)" target={metrics.cei} sub="collection effectiveness · >80% good" accent={metrics.cei >= 80 ? "text-green-600" : "text-amber-600"} format={(n) => `${n.toFixed(0)}%`} run={animate} />
+      <KpiTile label="Total Outstanding" target={metrics.totalOutstanding} sub="across open invoices" accent="text-brand" format={money} run={animate} />
+      <KpiTile label="Overdue" target={metrics.overduePct} sub={`${money(metrics.overdueOutstanding)} overdue`} accent="text-red-600" format={(n) => `${n.toFixed(0)}%`} run={animate} />
+    </div>
+  );
+
+  const hidden = WIDGETS.filter((w) => !active.widgets.includes(w.id));
 
   return (
     <div>
       <PageHeader
         title="Dashboard"
-        subtitle="The finance team's at-a-glance view. All amounts in INR."
+        subtitle="The finance team's at-a-glance AR view. All amounts in INR."
         action={
           <span className="flex items-center gap-2 rounded-full bg-green-50 px-3 py-1.5 text-xs font-medium text-green-700">
-            <span className="relative flex h-2 w-2">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-500 opacity-75" />
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-green-500" />
-            </span>
+            <span className="relative flex h-2 w-2"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-500 opacity-75" /><span className="relative inline-flex h-2 w-2 rounded-full bg-green-500" /></span>
             Live{lastUpdate ? ` · ${lastUpdate}` : ""}
           </span>
         }
@@ -349,35 +256,70 @@ export default function DashboardPage() {
       ) : loading ? (
         <div className="rounded-xl border border-slate-200 bg-white p-10 text-center text-slate-400">Loading…</div>
       ) : (
-        <div className="space-y-6">
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <Tile label="Customers" target={customerCount} sub="on the master" accent="text-slate-900" run={animate} />
-            <Tile label="Invoices" target={invoices.length} sub="total raised" accent="text-slate-900" run={animate} />
-            <Tile label="Overdue" target={overdue.length} sub={`${money(overdueOutstanding)} outstanding`} accent="text-red-600" run={animate} />
-            <Tile label="Total Outstanding" target={totalOutstanding} sub="across open invoices" accent="text-brand" isMoney run={animate} />
+        <>
+          {/* Dashboard tabs + customise controls */}
+          <div className="mb-5 flex flex-wrap items-center gap-2">
+            {config.boards.map((b) => (
+              <button key={b.id} onClick={() => setConfig((c) => ({ ...c, activeId: b.id }))}
+                className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${b.id === active.id ? "bg-brand text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}>
+                {b.name}
+              </button>
+            ))}
+            <button onClick={newBoard} className="rounded-lg border border-dashed border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-500 hover:border-brand hover:text-brand">+ New Dashboard</button>
+            <div className="ml-auto flex gap-2">
+              {customise && (
+                <>
+                  <button onClick={renameBoard} className="rounded-lg bg-slate-100 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-200">Rename</button>
+                  <button onClick={resetBoard} className="rounded-lg bg-slate-100 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-200">Reset</button>
+                  {config.boards.length > 1 && <button onClick={deleteBoard} className="rounded-lg bg-red-50 px-3 py-1.5 text-sm text-red-600 hover:bg-red-100">Delete</button>}
+                </>
+              )}
+              <button onClick={() => setCustomise((v) => !v)} className={`rounded-lg px-3 py-1.5 text-sm font-semibold ${customise ? "bg-brand text-white" : "bg-slate-100 text-slate-700 hover:bg-slate-200"}`}>
+                {customise ? "✓ Done" : "⚙ Customise"}
+              </button>
+            </div>
           </div>
 
+          {/* Widget grid */}
           <div className="grid gap-4 lg:grid-cols-3">
-            <div className="lg:col-span-2">
-              <BarPlot title="AR Ageing — outstanding by bucket" subtitle="How much is owed, grouped by how late it is (INR). Blue = current, amber = watch, red = critical." bars={buckets} run={animate} />
-            </div>
-            <StatusDonut segments={statusSegments} total={invoices.length} run={animate} />
+            {active.widgets.map((wid, idx) => {
+              const def = WIDGETS.find((w) => w.id === wid);
+              if (!def) return null;
+              const spanClass = def.span === 3 ? "lg:col-span-3" : def.span === 2 ? "lg:col-span-2" : "lg:col-span-1";
+              const controls = customise && (
+                <div className="mb-2 flex items-center justify-end gap-1">
+                  <button onClick={() => move(idx, -1)} className="rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-500 hover:bg-slate-200" title="Move up">↑</button>
+                  <button onClick={() => move(idx, 1)} className="rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-500 hover:bg-slate-200" title="Move down">↓</button>
+                  <button onClick={() => remove(wid)} className="rounded bg-red-50 px-2 py-0.5 text-xs text-red-500 hover:bg-red-100" title="Remove">✕</button>
+                </div>
+              );
+              return (
+                <div key={wid} className={`${spanClass} ${customise ? "rounded-xl ring-1 ring-dashed ring-slate-300" : ""} ${customise ? "p-2" : ""}`}>
+                  {controls}
+                  {def.kpi ? kpiRow : (
+                    <Card title={def.title} subtitle={def.subtitle}>
+                      {def.comingSoon ? <ComingSoon note={def.comingSoon} /> : def.render?.(metrics)}
+                    </Card>
+                  )}
+                </div>
+              );
+            })}
           </div>
 
-          <div className="grid gap-4 lg:grid-cols-3">
-            <div className="lg:col-span-2">
-              <GroupedBars
-                title="Invoiced vs Collected — by month"
-                subtitle="Cash raised vs cash received each month (INR)."
-                categories={monthLabels}
-                seriesA={{ name: "Invoiced", color: "#2f6bff", values: invoicedByMonth }}
-                seriesB={{ name: "Collected", color: "#16a34a", values: collectedByMonth }}
-                run={animate}
-              />
+          {/* Add-widget tray (customise mode) */}
+          {customise && hidden.length > 0 && (
+            <div className="mt-5 rounded-xl border border-dashed border-slate-300 bg-slate-50 p-4">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Add a widget</p>
+              <div className="flex flex-wrap gap-2">
+                {hidden.map((w) => (
+                  <button key={w.id} onClick={() => add(w.id)} className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-600 hover:border-brand hover:text-brand">
+                    + {w.title}{w.comingSoon ? " (soon)" : ""}
+                  </button>
+                ))}
+              </div>
             </div>
-            <TopCustomers rows={topCustomers} run={animate} />
-          </div>
-        </div>
+          )}
+        </>
       )}
     </div>
   );
