@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter, Fraunces } from "next/font/google";
 import "./globals.css";
 import { Nav } from "@/components/Nav";
+import { AuthGate } from "@/components/AuthGate";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" });
 const fraunces = Fraunces({ subsets: ["latin"], variable: "--font-fraunces", display: "swap", weight: ["500", "600", "700"] });
@@ -23,10 +24,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body className="font-sans">
-        <div className="flex h-screen">
-          <Nav />
-          <main className="flex-1 overflow-y-auto bg-canvas p-8">{children}</main>
-        </div>
+        <AuthGate>
+          <div className="flex h-screen">
+            <Nav />
+            <main className="flex-1 overflow-y-auto bg-canvas p-8">{children}</main>
+          </div>
+        </AuthGate>
       </body>
     </html>
   );
