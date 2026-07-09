@@ -93,7 +93,7 @@ export default function AutoEmailShootPage() {
     setError(null);
 
     const [invoicesRes, customersRes, allocationsRes, templateRes] = await Promise.all([
-      supabase!.from("invoices").select("*").in("status", ["open", "partial"]),
+      supabase!.from("invoices").select("*").neq("status", "paid"),
       supabase!.from("customers").select("*"),
       supabase!.from("receipt_allocations").select("*"),
       supabase!.from("reminder_templates").select("*").limit(1).maybeSingle(),
@@ -135,7 +135,7 @@ export default function AutoEmailShootPage() {
           aging: agingBucket(days),
         };
       })
-      .filter((row) => row.outstanding > 0);
+      .filter((row) => row.outstanding > 0.005);
 
     setBaseRows(rows);
     setTemplate((templateRes.data as ReminderTemplate) ?? null);
