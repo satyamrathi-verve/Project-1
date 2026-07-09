@@ -21,6 +21,7 @@ export function DataTable<T extends { id: string }>({
   expandedRowId,
   renderExpanded,
   onRowClick,
+  caption,
 }: {
   columns: Column<T>[];
   rows: T[];
@@ -35,14 +36,17 @@ export function DataTable<T extends { id: string }>({
   renderExpanded?: (row: T) => ReactNode;
   /** Optional click handler for a whole row (e.g. open the detail screen, or toggle expansion). */
   onRowClick?: (row: T) => void;
+  /** Visually-hidden table description for screen readers. */
+  caption?: string;
 }) {
   return (
     <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
       <table className="w-full text-sm">
+        {caption && <caption className="sr-only">{caption}</caption>}
         <thead>
           <tr className="border-b border-slate-200 bg-slate-50 text-left">
             {columns.map((c) => (
-              <th key={c.key} className={`px-4 py-3 font-semibold text-slate-600 ${c.className ?? ""}`}>
+              <th key={c.key} scope="col" className={`px-4 py-3 font-semibold text-slate-600 ${c.className ?? ""}`}>
                 {c.header}
               </th>
             ))}
@@ -62,8 +66,20 @@ export function DataTable<T extends { id: string }>({
                 <Fragment key={row.id}>
                   <tr
                     onClick={onRowClick ? () => onRowClick(row) : undefined}
+                    onKeyDown={
+                      onRowClick
+                        ? (e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              onRowClick(row);
+                            }
+                          }
+                        : undefined
+                    }
+                    role={onRowClick ? "button" : undefined}
+                    tabIndex={onRowClick ? 0 : undefined}
                     className={`border-b border-slate-100 last:border-0 hover:bg-slate-50 ${
-                      onRowClick ? "cursor-pointer" : ""
+                      onRowClick ? "cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-brand" : ""
                     } ${rowClassName ? rowClassName(row) : ""}`}
                   >
                     {columns.map((c) => (
