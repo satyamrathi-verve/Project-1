@@ -51,6 +51,25 @@ export function daysLate(dueDate: string | null): number {
 export const COMPANY_ABBR = "VAPL"; // Verve Advisory Pvt Ltd
 export const SERVICE_SAC = "998313"; // SAC for the firm's services
 export const TDS_RATE = 0.1; // 194J professional/advisory services → 10%
+export const GST_RATE = 0.18; // 18% (CGST 9 + SGST 9, or IGST 18)
+
+// Next running invoice number from the existing ones, e.g. [...INV-0040] -> "INV-0041".
+export function nextInvoiceNo(existing: string[]): string {
+  let max = 0;
+  for (const s of existing) {
+    const m = s.match(/(\d+)\s*$/);
+    if (m) max = Math.max(max, parseInt(m[1], 10));
+  }
+  return `INV-${String(max + 1).padStart(4, "0")}`;
+}
+
+// invoice_date + credit_days -> yyyy-mm-dd due date.
+export function addDays(dateStr: string, days: number): string {
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return dateStr;
+  d.setDate(d.getDate() + days);
+  return d.toISOString().slice(0, 10);
+}
 
 // Financial-year code (India Apr–Mar) from a date, e.g. 2026-07-06 -> "26-27".
 export function financialYearCode(dateStr: string | null): string {

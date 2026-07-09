@@ -118,6 +118,14 @@ export default function InvoiceListPage() {
       <PageHeader
         title="Sales Invoices"
         subtitle="All invoices. Search by customer, filter by status. Overdue rows are red."
+        action={
+          <Link
+            href="/invoices/new"
+            className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-dark"
+          >
+            + New Invoice
+          </Link>
+        }
       />
 
       {!isConfigured ? (
