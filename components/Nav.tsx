@@ -79,9 +79,10 @@ export function Nav() {
         >
           ✕
         </button>
-        <div className="mb-4 px-2">
-          <p className="text-xs font-semibold uppercase tracking-widest text-brand">Verve</p>
-          <h1 className="font-display text-xl font-bold text-ink">AR Manager</h1>
+        <div className="mb-4 flex items-center gap-2.5 px-1">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/verve-logo.png" alt="Verve Advisory" className="h-9 w-auto rounded-md bg-white p-1 shadow-sm" />
+          <span className="font-display text-sm font-semibold text-muted">AR Manager</span>
         </div>
         <button
           type="button"

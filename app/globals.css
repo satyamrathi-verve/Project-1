@@ -3,53 +3,54 @@
 @tailwind utilities;
 
 /* ============================================================
-   Verve Gold theme · three modes: Normal (light), Dark, Bluish.
-   The active mode is set by data-theme on <html> (see ThemeToggle).
-   Components read these tokens via Tailwind's semantic colours
+   Verve Advisory theme — aligned to the brand logo (royal blue
+   + geometric sans). Three modes: Normal (light), Dark, Bluish.
+   Active mode is set by data-theme on <html> (see ThemeToggle).
+   Components read these via semantic Tailwind colours
    (bg-surface, text-ink, border-line, text-brand, …).
    ============================================================ */
 
 :root,
 :root[data-theme="normal"] {
   color-scheme: light;
-  --canvas: #faf7f0;
+  --canvas: #f5f7fb;
   --surface: #ffffff;
-  --surface2: #f5f1e8;
-  --ink: #1c1917;
-  --muted: #79716b;
-  --faint: #a8a29e;
-  --line: #ece5d8;
-  --brand: #b6832a;
-  --brand-dark: #8f6720;
+  --surface2: #eef2f8;
+  --ink: #101828;
+  --muted: #5b6675;
+  --faint: #94a2b6;
+  --line: #e3e8f0;
+  --brand: #1f52a0;
+  --brand-dark: #163e7c;
   --brand-ink: #ffffff;
 }
 
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --canvas: #12100c;
-  --surface: #1c1a14;
-  --surface2: #262219;
-  --ink: #f0e9d8;
-  --muted: #9a917d;
-  --faint: #6f6858;
-  --line: #2e2a20;
-  --brand: #d1a054;
-  --brand-dark: #b6832a;
-  --brand-ink: #1c140a;
+  --canvas: #0d1017;
+  --surface: #161a22;
+  --surface2: #20262f;
+  --ink: #e8ebf0;
+  --muted: #9aa3b2;
+  --faint: #626b7a;
+  --line: #272d38;
+  --brand: #5b8ce2;
+  --brand-dark: #3f6fc0;
+  --brand-ink: #0d1017;
 }
 
 :root[data-theme="bluish"] {
   color-scheme: dark;
-  --canvas: #0e1424;
-  --surface: #161d33;
-  --surface2: #1f2846;
-  --ink: #e7ebf5;
-  --muted: #8b94a8;
-  --faint: #5f6a85;
-  --line: #283251;
-  --brand: #6d5efc;
-  --brand-dark: #574bd6;
-  --brand-ink: #ffffff;
+  --canvas: #0c1730;
+  --surface: #15223f;
+  --surface2: #1d2d50;
+  --ink: #e7ecf7;
+  --muted: #93a1bd;
+  --faint: #5e6e91;
+  --line: #283a5e;
+  --brand: #5f92f2;
+  --brand-dark: #3f6fca;
+  --brand-ink: #0c1730;
 }
 
 body {
