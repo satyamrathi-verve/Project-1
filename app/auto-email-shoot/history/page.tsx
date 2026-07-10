@@ -45,9 +45,9 @@ function statusStyle(status: string) {
 
 function SummaryCard({ label, value }: { label: string; value: string | number }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-4">
-      <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</p>
-      <p className="mt-1 text-2xl font-bold text-slate-900">{value}</p>
+    <div className="rounded-xl border border-line bg-surface p-4">
+      <p className="text-xs font-medium uppercase tracking-wide text-muted">{label}</p>
+      <p className="mt-1 text-2xl font-bold text-ink">{value}</p>
     </div>
   );
 }
@@ -88,8 +88,15 @@ export default function ReminderHistoryPage() {
     function onClickOutside(e: MouseEvent) {
       if (exportRef.current && !exportRef.current.contains(e.target as Node)) setExportOpen(false);
     }
+    function onEscape(e: KeyboardEvent) {
+      if (e.key === "Escape") setExportOpen(false);
+    }
     document.addEventListener("mousedown", onClickOutside);
-    return () => document.removeEventListener("mousedown", onClickOutside);
+    document.addEventListener("keydown", onEscape);
+    return () => {
+      document.removeEventListener("mousedown", onClickOutside);
+      document.removeEventListener("keydown", onEscape);
+    };
   }, []);
 
   useEffect(() => {
@@ -258,7 +265,7 @@ export default function ReminderHistoryPage() {
       render: (row) => (
         <span>
           {new Date(row.sent_at).toLocaleDateString()}{" "}
-          <span className="text-slate-400">{new Date(row.sent_at).toLocaleTimeString()}</span>
+          <span className="text-faint">{new Date(row.sent_at).toLocaleTimeString()}</span>
         </span>
       ),
     },
@@ -313,19 +320,22 @@ export default function ReminderHistoryPage() {
             <button
               onClick={() => setExportOpen((v) => !v)}
               disabled={sortedRows.length === 0}
-              className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+              aria-label="Export"
+              aria-haspopup="menu"
+              aria-expanded={exportOpen}
+              className="rounded-lg border border-line bg-surface px-4 py-2 text-sm font-medium text-ink transition-colors hover:bg-surface2 disabled:cursor-not-allowed disabled:opacity-50"
             >
               Export ▾
             </button>
             {exportOpen && (
-              <div className="absolute right-0 z-10 mt-1 w-40 rounded-lg border border-slate-200 bg-white p-1 shadow-lg">
-                <button onClick={() => handleExport("excel")} className="block w-full rounded px-3 py-2 text-left text-sm hover:bg-slate-50">
+              <div className="absolute right-0 z-10 mt-1 w-40 rounded-lg border border-line bg-surface p-1 shadow-lg">
+                <button onClick={() => handleExport("excel")} className="block w-full rounded px-3 py-2 text-left text-sm hover:bg-surface2">
                   Excel (.xlsx)
                 </button>
-                <button onClick={() => handleExport("csv")} className="block w-full rounded px-3 py-2 text-left text-sm hover:bg-slate-50">
+                <button onClick={() => handleExport("csv")} className="block w-full rounded px-3 py-2 text-left text-sm hover:bg-surface2">
                   CSV (.csv)
                 </button>
-                <button onClick={() => handleExport("pdf")} className="block w-full rounded px-3 py-2 text-left text-sm hover:bg-slate-50">
+                <button onClick={() => handleExport("pdf")} className="block w-full rounded px-3 py-2 text-left text-sm hover:bg-surface2">
                   PDF (.pdf)
                 </button>
               </div>
@@ -349,7 +359,7 @@ export default function ReminderHistoryPage() {
 
       <div className="mb-4 flex flex-wrap items-end gap-4">
         <label className="flex flex-col gap-1">
-          <span className="text-xs font-medium uppercase tracking-wide text-slate-500">Search</span>
+          <span className="text-xs font-medium uppercase tracking-wide text-muted">Search</span>
           <input
             type="text"
             value={search}
@@ -359,11 +369,11 @@ export default function ReminderHistoryPage() {
           />
         </label>
         <label className="flex flex-col gap-1">
-          <span className="text-xs font-medium uppercase tracking-wide text-slate-500">From</span>
+          <span className="text-xs font-medium uppercase tracking-wide text-muted">From</span>
           <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className={inputClass} />
         </label>
         <label className="flex flex-col gap-1">
-          <span className="text-xs font-medium uppercase tracking-wide text-slate-500">To</span>
+          <span className="text-xs font-medium uppercase tracking-wide text-muted">To</span>
           <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className={inputClass} />
         </label>
         <MultiSelect label="Customer Name" options={customerOptions} selected={customerFilter} onChange={setCustomerFilter} />
@@ -371,25 +381,20 @@ export default function ReminderHistoryPage() {
         <MultiSelect label="Status" options={statusOptions} selected={statusFilter} onChange={setStatusFilter} />
       </div>
 
-      {loading ? (
-        <p className="text-sm text-slate-500">Loading reminder history…</p>
-      ) : (
-        <>
-          <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">
-            Reminders ({sortedRows.length})
-          </h3>
-          <DataTable
-            columns={columns}
-            rows={pagedRows}
-            sortKey={sortKey}
-            sortDir={sortDir}
-            onSort={handleSort}
-            empty={baseRows.length === 0 ? "No Reminder History Found" : "No reminders match the current filters."}
-          />
-          {sortedRows.length > 0 && (
-            <Pagination page={page} pageSize={pageSize} total={sortedRows.length} onPageChange={setPage} onPageSizeChange={setPageSize} />
-          )}
-        </>
+      <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted">
+        {loading ? "Loading reminder history…" : `Reminders (${sortedRows.length})`}
+      </h3>
+      <DataTable
+        columns={columns}
+        rows={pagedRows}
+        loading={loading}
+        sortKey={sortKey}
+        sortDir={sortDir}
+        onSort={handleSort}
+        empty={baseRows.length === 0 ? "No Reminder History Found" : "No reminders match the current filters."}
+      />
+      {!loading && sortedRows.length > 0 && (
+        <Pagination page={page} pageSize={pageSize} total={sortedRows.length} onPageChange={setPage} onPageSizeChange={setPageSize} />
       )}
     </>
   );

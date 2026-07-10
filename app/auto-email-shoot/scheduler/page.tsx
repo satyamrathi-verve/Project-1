@@ -18,6 +18,7 @@ import {
 } from "@/lib/schedulerSettings";
 import { getSchedulerLog, type SchedulerRunEntry } from "@/lib/schedulerLog";
 import { countPendingReminders, runScheduledCheck } from "@/lib/reminderScheduler";
+import { toast } from "@/components/Toast";
 import type { Invoice, ReceiptAllocation } from "@/lib/types";
 
 function money(n: number) {
@@ -26,9 +27,9 @@ function money(n: number) {
 
 function SummaryCard({ label, value }: { label: string; value: string | number }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-4">
-      <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</p>
-      <p className="mt-1 text-2xl font-bold text-slate-900">{value}</p>
+    <div className="rounded-xl border border-line bg-surface p-4">
+      <p className="text-xs font-medium uppercase tracking-wide text-muted">{label}</p>
+      <p className="mt-1 text-2xl font-bold text-ink">{value}</p>
     </div>
   );
 }
@@ -43,7 +44,6 @@ export default function SchedulerSettingsPage() {
 
   const [settings, setSettings] = useState<SchedulerSettings>(DEFAULT_SETTINGS);
   const [savingSettings, setSavingSettings] = useState(false);
-  const [settingsMessage, setSettingsMessage] = useState<string | null>(null);
 
   const [log, setLog] = useState<LogRow[]>([]);
   const [running, setRunning] = useState(false);
@@ -115,15 +115,17 @@ export default function SchedulerSettingsPage() {
   async function handleSaveSettings() {
     setSavingSettings(true);
     setSchedulerSettings(settings);
-    setSettingsMessage("Settings saved.");
+    toast("Settings saved.", { variant: "success" });
     setSavingSettings(false);
     await loadDashboard();
   }
 
   async function handleRunNow() {
     setRunning(true);
-    setSettingsMessage(null);
-    await runScheduledCheck({ manual: true });
+    const result = await runScheduledCheck({ manual: true });
+    toast(`Scheduler run complete — ${result.sent} sent, ${result.skipped} skipped, ${result.failed} failed.`, {
+      variant: result.failed > 0 ? "error" : "success",
+    });
     setSettings(getSchedulerSettings());
     await loadDashboard();
     setRunning(false);
@@ -138,7 +140,7 @@ export default function SchedulerSettingsPage() {
       render: (row) => (
         <span
           className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-            row.manual ? "bg-slate-100 text-slate-600" : "bg-emerald-100 text-emerald-700"
+            row.manual ? "bg-surface2 text-muted" : "bg-emerald-100 text-emerald-700"
           }`}
         >
           {row.manual ? "Manual" : "Automatic"}
@@ -174,14 +176,14 @@ export default function SchedulerSettingsPage() {
           <div className="flex items-center gap-2">
             <Link
               href="/auto-email-shoot"
-              className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              className="rounded-lg border border-line bg-surface px-4 py-2 text-sm font-medium text-ink hover:bg-surface2"
             >
               ← Back to Auto Email Shoot
             </Link>
             <button
               onClick={handleRunNow}
               disabled={running}
-              className="rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-50"
+              className="rounded-lg bg-brand px-4 py-2 text-sm font-medium text-brandink hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-50"
             >
               {running ? "Running…" : "Run Scheduler Now"}
             </button>
@@ -200,7 +202,14 @@ export default function SchedulerSettingsPage() {
       )}
 
       {loading ? (
-        <p className="text-sm text-slate-500">Loading…</p>
+        <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="rounded-xl border border-line bg-surface p-4">
+              <div className="h-3 w-24 animate-pulse rounded bg-surface2" />
+              <div className="mt-2 h-6 w-16 animate-pulse rounded bg-surface2" />
+            </div>
+          ))}
+        </div>
       ) : (
         <>
           <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
@@ -216,15 +225,15 @@ export default function SchedulerSettingsPage() {
           </div>
 
           <div className="grid gap-6 lg:grid-cols-[1fr_2fr]">
-            <div className="rounded-xl border border-slate-200 bg-white p-4">
-              <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Configuration</h3>
+            <div className="rounded-xl border border-line bg-surface p-4">
+              <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted">Configuration</h3>
               <div className="space-y-3">
-                <label className="flex items-center gap-2 text-sm text-slate-700">
+                <label className="flex items-center gap-2 text-sm text-ink">
                   <input
                     type="checkbox"
                     checked={settings.enabled}
                     onChange={(e) => setSettings((p) => ({ ...p, enabled: e.target.checked }))}
-                    className="h-4 w-4 rounded border-slate-300 text-brand focus:ring-brand"
+                    className="h-4 w-4 rounded border-line text-brand focus:ring-brand"
                   />
                   Enable automatic reminders
                 </label>
@@ -254,7 +263,7 @@ export default function SchedulerSettingsPage() {
                     />
                   </FormField>
                 )}
-                <p className="-mt-2 text-xs text-slate-400">
+                <p className="-mt-2 text-xs text-faint">
                   The first reminder always fires the day after an invoice becomes overdue. This sets the gap between
                   every reminder after that.
                 </p>
@@ -269,9 +278,9 @@ export default function SchedulerSettingsPage() {
                 </FormField>
 
                 <FormField label="Time zone">
-                  <input type="text" value={settings.timeZone} disabled className={`${inputClass} bg-slate-50 text-slate-400`} />
+                  <input type="text" value={settings.timeZone} disabled className={`${inputClass} bg-surface2 text-faint`} />
                 </FormField>
-                <p className="-mt-2 text-xs text-slate-400">
+                <p className="-mt-2 text-xs text-faint">
                   Informational only — the check runs against this browser&apos;s own clock.
                 </p>
 
@@ -290,42 +299,41 @@ export default function SchedulerSettingsPage() {
                   />
                 </FormField>
 
-                <label className="flex items-center gap-2 text-sm text-slate-700">
+                <label className="flex items-center gap-2 text-sm text-ink">
                   <input
                     type="checkbox"
                     checked={settings.skipWeekends}
                     onChange={(e) => setSettings((p) => ({ ...p, skipWeekends: e.target.checked }))}
-                    className="h-4 w-4 rounded border-slate-300 text-brand focus:ring-brand"
+                    className="h-4 w-4 rounded border-line text-brand focus:ring-brand"
                   />
                   Skip weekends
                 </label>
-                <label className="flex items-center gap-2 text-sm text-slate-700">
+                <label className="flex items-center gap-2 text-sm text-ink">
                   <input
                     type="checkbox"
                     checked={settings.skipHolidays}
                     onChange={(e) => setSettings((p) => ({ ...p, skipHolidays: e.target.checked }))}
-                    className="h-4 w-4 rounded border-slate-300 text-brand focus:ring-brand"
+                    className="h-4 w-4 rounded border-line text-brand focus:ring-brand"
                   />
                   Skip public holidays
                 </label>
-                <p className="text-xs text-slate-400">Uses a small fixed demo holiday list — not a live holiday calendar.</p>
+                <p className="text-xs text-faint">Uses a small fixed demo holiday list — not a live holiday calendar.</p>
 
                 <button
                   onClick={handleSaveSettings}
                   disabled={savingSettings}
-                  className="w-full rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-50"
+                  className="w-full rounded-lg bg-brand px-4 py-2 text-sm font-medium text-brandink hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {savingSettings ? "Saving…" : "Save Settings"}
                 </button>
-                {settingsMessage && <p className="text-xs text-emerald-600">{settingsMessage}</p>}
-                <p className="text-xs text-slate-400">
+                <p className="text-xs text-faint">
                   Settings are saved in this browser only — not shared across your team&apos;s devices.
                 </p>
               </div>
             </div>
 
             <div>
-              <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">Execution Log</h3>
+              <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted">Execution Log</h3>
               <DataTable columns={logColumns} rows={log} empty="No scheduler runs yet." />
             </div>
           </div>

@@ -16,6 +16,7 @@ import { buildEmailHtml, buildInvoiceTableHtml, decomposeBody, fillPlaceholders,
 import { getBranding, getSignedInUser } from "@/lib/companyBranding";
 import type { Customer, Invoice, ReceiptAllocation, ReminderLog, ReminderTemplate } from "@/lib/types";
 import { Clock3, Download, FileSpreadsheet, FileText, Mail, MoreVertical, Table2 } from "lucide-react";
+import { toast } from "@/components/Toast";
 
 interface CustomerEmailGroup {
   customerId: string;
@@ -340,7 +341,6 @@ export default function AutoEmailShootPage() {
   async function handleSend() {
     if (!supabase || !template || selected.size === 0) return;
     setSending(true);
-    setError(null);
 
     const groups = buildCustomerEmailGroups(baseRows.filter((r) => selected.has(r.id)));
     const logRows = groups.flatMap((g) =>
@@ -356,12 +356,16 @@ export default function AutoEmailShootPage() {
     const { data, error: insertError } = await supabase.from("reminder_log").insert(logRows).select();
 
     if (insertError) {
-      setError(insertError.message);
+      toast(insertError.message, { variant: "error" });
       setSending(false);
       return;
     }
 
     setSentLog((prev) => [...(data as ReminderLog[]), ...prev]);
+    toast(
+      `${logRows.length} reminder${logRows.length === 1 ? "" : "s"} sent across ${groups.length} customer${groups.length === 1 ? "" : "s"}.`,
+      { variant: "success" }
+    );
     setSending(false);
     setPreviewOpen(false);
   }
@@ -394,7 +398,7 @@ export default function AutoEmailShootPage() {
           checked={allFilteredSelected}
           onChange={toggleAllFiltered}
           aria-label={allFilteredSelected ? "Deselect all filtered invoices" : "Select all filtered invoices"}
-          className="h-4 w-4 rounded border-slate-300 text-brand focus:ring-brand"
+          className="h-4 w-4 rounded border-line text-brand focus:ring-brand"
         />
       ),
       render: (row) => (
@@ -403,7 +407,7 @@ export default function AutoEmailShootPage() {
           checked={selected.has(row.id)}
           onChange={() => toggleRow(row.id)}
           aria-label={`${selected.has(row.id) ? "Deselect" : "Select"} invoice ${row.invoice_no} (${row.customer_name})`}
-          className="h-4 w-4 rounded border-slate-300 text-brand focus:ring-brand"
+          className="h-4 w-4 rounded border-line text-brand focus:ring-brand"
         />
       ),
       className: "w-10 text-center align-middle",
@@ -445,7 +449,7 @@ export default function AutoEmailShootPage() {
       sortable: true,
       className: "text-right align-middle whitespace-nowrap",
       render: (row) => (
-        <span className={row.days_overdue > 0 ? "font-medium text-red-600" : "text-slate-500"}>
+        <span className={row.days_overdue > 0 ? "font-medium text-red-600" : "text-muted"}>
           {row.days_overdue > 0 ? row.days_overdue : "—"}
         </span>
       ),
@@ -457,7 +461,7 @@ export default function AutoEmailShootPage() {
       render: (row) => (
         <span
           className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-            row.aging === "Not Due" ? "bg-slate-100 text-slate-600" : "bg-red-100 text-red-700"
+            row.aging === "Not Due" ? "bg-surface2 text-muted" : "bg-red-100 text-red-700"
           }`}
         >
           {row.aging}
@@ -473,7 +477,7 @@ export default function AutoEmailShootPage() {
           href={`/auto-email-shoot/history/${row.id}`}
           target="_blank"
           rel="noopener noreferrer"
-          className="rounded-lg border border-slate-300 px-2.5 py-1 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-50"
+          className="rounded-lg border border-line px-2.5 py-1 text-xs font-medium text-muted transition-colors hover:bg-surface2"
         >
           History
         </Link>
@@ -523,7 +527,7 @@ export default function AutoEmailShootPage() {
                 aria-label="More options"
                 aria-haspopup="menu"
                 aria-expanded={moreMenuOpen}
-                className="rounded-lg border border-slate-300 bg-white p-2.5 text-slate-700 transition-colors hover:bg-slate-50"
+                className="rounded-lg border border-line bg-surface p-2.5 text-ink transition-colors hover:bg-surface2"
               >
                 <MoreVertical className="h-4 w-4" />
               </button>
@@ -531,7 +535,7 @@ export default function AutoEmailShootPage() {
               <div
                 role="menu"
                 aria-hidden={!moreMenuOpen}
-                className={`absolute right-0 z-10 mt-1 w-64 origin-top-right rounded-lg border border-slate-200 bg-white p-1 shadow-lg transition duration-150 ease-out ${
+                className={`absolute right-0 z-10 mt-1 w-64 origin-top-right rounded-lg border border-line bg-surface p-1 shadow-lg transition duration-150 ease-out ${
                   moreMenuOpen ? "pointer-events-auto scale-100 opacity-100" : "pointer-events-none scale-95 opacity-0"
                 }`}
               >
@@ -540,16 +544,16 @@ export default function AutoEmailShootPage() {
                   onClick={() => setExportSubmenuOpen((v) => !v)}
                   disabled={sortedRows.length === 0}
                   aria-expanded={exportSubmenuOpen}
-                  className="flex w-full items-center justify-between gap-2 rounded px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="flex w-full items-center justify-between gap-2 rounded px-3 py-2 text-left text-sm text-ink hover:bg-surface2 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <span className="flex items-center gap-2">
-                    <Download className="h-4 w-4 text-slate-400" />
+                    <Download className="h-4 w-4 text-faint" />
                     Export
                   </span>
-                  <span className="text-xs text-slate-400">{exportSubmenuOpen ? "▾" : "▸"}</span>
+                  <span className="text-xs text-faint">{exportSubmenuOpen ? "▾" : "▸"}</span>
                 </button>
                 {exportSubmenuOpen && (
-                  <div className="ml-4 border-l border-slate-100 pl-2">
+                  <div className="ml-4 border-l border-line pl-2">
                     <button
                       role="menuitem"
                       onClick={() => {
@@ -557,9 +561,9 @@ export default function AutoEmailShootPage() {
                         setMoreMenuOpen(false);
                         setExportSubmenuOpen(false);
                       }}
-                      className="flex w-full items-center gap-2 rounded px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
+                      className="flex w-full items-center gap-2 rounded px-3 py-2 text-left text-sm text-ink hover:bg-surface2"
                     >
-                      <FileSpreadsheet className="h-4 w-4 text-slate-400" />
+                      <FileSpreadsheet className="h-4 w-4 text-faint" />
                       Export to Excel (.xlsx)
                     </button>
                     <button
@@ -569,9 +573,9 @@ export default function AutoEmailShootPage() {
                         setMoreMenuOpen(false);
                         setExportSubmenuOpen(false);
                       }}
-                      className="flex w-full items-center gap-2 rounded px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
+                      className="flex w-full items-center gap-2 rounded px-3 py-2 text-left text-sm text-ink hover:bg-surface2"
                     >
-                      <Table2 className="h-4 w-4 text-slate-400" />
+                      <Table2 className="h-4 w-4 text-faint" />
                       Export to CSV (.csv)
                     </button>
                     <button
@@ -581,9 +585,9 @@ export default function AutoEmailShootPage() {
                         setMoreMenuOpen(false);
                         setExportSubmenuOpen(false);
                       }}
-                      className="flex w-full items-center gap-2 rounded px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
+                      className="flex w-full items-center gap-2 rounded px-3 py-2 text-left text-sm text-ink hover:bg-surface2"
                     >
-                      <FileText className="h-4 w-4 text-slate-400" />
+                      <FileText className="h-4 w-4 text-faint" />
                       Export to PDF (.pdf)
                     </button>
                   </div>
@@ -593,18 +597,18 @@ export default function AutoEmailShootPage() {
                   role="menuitem"
                   href="/auto-email-shoot/template"
                   onClick={() => setMoreMenuOpen(false)}
-                  className="flex w-full items-center gap-2 rounded px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
+                  className="flex w-full items-center gap-2 rounded px-3 py-2 text-left text-sm text-ink hover:bg-surface2"
                 >
-                  <Mail className="h-4 w-4 text-slate-400" />
+                  <Mail className="h-4 w-4 text-faint" />
                   Customize Email Template
                 </Link>
                 <Link
                   role="menuitem"
                   href="/auto-email-shoot/scheduler"
                   onClick={() => setMoreMenuOpen(false)}
-                  className="flex w-full items-center gap-2 rounded px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
+                  className="flex w-full items-center gap-2 rounded px-3 py-2 text-left text-sm text-ink hover:bg-surface2"
                 >
-                  <Clock3 className="h-4 w-4 text-slate-400" />
+                  <Clock3 className="h-4 w-4 text-faint" />
                   Automatic Reminder Settings
                 </Link>
               </div>
@@ -616,7 +620,7 @@ export default function AutoEmailShootPage() {
               }}
               disabled={selected.size === 0 || !template}
               title={selected.size === 0 ? "Select at least one invoice to review and send reminders." : undefined}
-              className="rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-50"
+              className="rounded-lg bg-brand px-4 py-2 text-sm font-medium text-brandink transition-colors hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-50"
             >
               Review &amp; Send{selected.size > 0 ? ` (${selected.size})` : ""}
             </button>
@@ -636,7 +640,7 @@ export default function AutoEmailShootPage() {
 
       <div className="mb-4 flex flex-wrap items-end gap-4">
         <label className="flex flex-col gap-1">
-          <span className="text-xs font-medium uppercase tracking-wide text-slate-500">Search</span>
+          <span className="text-xs font-medium uppercase tracking-wide text-muted">Search</span>
           <input
             type="text"
             value={search}
@@ -650,11 +654,11 @@ export default function AutoEmailShootPage() {
       </div>
 
       <div className="mb-2 flex items-center justify-between">
-        <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
-          Invoices ({sortedRows.length})
+        <h3 className="text-sm font-semibold uppercase tracking-wide text-muted">
+          {loading ? "Loading invoices…" : `Invoices (${sortedRows.length})`}
         </h3>
-        {selected.size > 0 && (
-          <span className="text-xs font-medium text-slate-600">
+        {!loading && selected.size > 0 && (
+          <span className="text-xs font-medium text-muted">
             {selected.size} Invoices Selected ·{" "}
             <button onClick={() => setSelected(new Set())} className="font-semibold text-brand hover:underline">
               Clear selection
@@ -671,13 +675,15 @@ export default function AutoEmailShootPage() {
         onSort={handleSort}
         empty="No invoices match the current filters."
         footer={
-          <tr className="border-t-2 border-slate-300 bg-slate-50 font-semibold text-slate-900">
-            <td colSpan={5} className="px-4 py-3 text-right align-middle whitespace-nowrap">
-              Total Receivables
-            </td>
-            <td className="px-4 py-3 text-right align-middle whitespace-nowrap">{money(totalOutstanding)}</td>
-            <td colSpan={3} className="px-4 py-3" />
-          </tr>
+          !loading ? (
+            <tr className="border-t-2 border-line bg-surface2 font-semibold text-ink">
+              <td colSpan={5} className="px-4 py-3 text-right align-middle whitespace-nowrap">
+                Total Receivables
+              </td>
+              <td className="px-4 py-3 text-right align-middle whitespace-nowrap">{money(totalOutstanding)}</td>
+              <td colSpan={3} className="px-4 py-3" />
+            </tr>
+          ) : undefined
         }
       />
       {!loading && sortedRows.length > 0 && (
@@ -686,36 +692,41 @@ export default function AutoEmailShootPage() {
 
       {sentLog.length > 0 && (
         <div className="mt-8">
-          <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">
+          <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted">
             Just sent ({sentLog.length})
           </h3>
           <DataTable columns={sentColumns} rows={sentLog} />
         </div>
       )}
 
-      <Modal open={previewOpen} onClose={() => setPreviewOpen(false)} titleId="email-preview-title">
-        <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
-          <h2 id="email-preview-title" className="text-lg font-semibold text-slate-900">
+      <Modal
+        open={previewOpen}
+        onClose={() => setPreviewOpen(false)}
+        titleId="email-preview-title"
+        className="flex max-h-[90vh] w-full max-w-3xl flex-col rounded-xl bg-surface shadow-xl"
+      >
+        <div className="flex items-center justify-between border-b border-line px-6 py-4">
+          <h2 id="email-preview-title" className="text-lg font-semibold text-ink">
             Email Preview
           </h2>
           <button
             onClick={() => setPreviewOpen(false)}
             aria-label="Close preview"
-            className="text-slate-400 hover:text-slate-600"
+            className="text-faint hover:text-muted"
           >
             ✕
           </button>
         </div>
 
         {previewGroups.length > 1 && (
-          <div className="flex flex-wrap gap-2 border-b border-slate-200 px-6 py-3">
+          <div className="flex flex-wrap gap-2 border-b border-line px-6 py-3">
             {previewGroups.map((g, i) => (
               <button
                 key={g.customerId}
                 onClick={() => setPreviewTab(i)}
                 aria-current={i === previewTab ? "true" : undefined}
                 className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-                  i === previewTab ? "bg-brand text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                  i === previewTab ? "bg-brand text-brandink" : "bg-surface2 text-muted hover:bg-surface2"
                 }`}
               >
                 {g.customerName} ({g.invoiceCount}){!g.customerEmail && " ⚠"}
@@ -733,33 +744,33 @@ export default function AutoEmailShootPage() {
                 </div>
               )}
               <p className="mb-2 text-sm">
-                <span className="font-medium text-slate-500">To: </span>
-                <span className="text-slate-800">{activePreviewGroup.customerEmail ?? "—"}</span>
+                <span className="font-medium text-muted">To: </span>
+                <span className="text-ink">{activePreviewGroup.customerEmail ?? "—"}</span>
               </p>
               <p className="mb-3 text-sm">
-                <span className="font-medium text-slate-500">Subject: </span>
-                <span className="text-slate-800">{activePreviewGroup.subject || "(empty subject)"}</span>
+                <span className="font-medium text-muted">Subject: </span>
+                <span className="text-ink">{activePreviewGroup.subject || "(empty subject)"}</span>
               </p>
               <div
-                className="rounded-lg border border-slate-200 bg-slate-50 p-4"
+                className="rounded-lg border border-line bg-surface2 p-4"
                 dangerouslySetInnerHTML={{ __html: activePreviewGroup.bodyHtml }}
               />
             </>
           ) : (
-            <p className="text-sm text-slate-500">Nothing selected to preview.</p>
+            <p className="text-sm text-muted">Nothing selected to preview.</p>
           )}
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 border-t border-slate-200 px-6 py-4">
+        <div className="flex flex-wrap items-center gap-2 border-t border-line px-6 py-4">
           <Link
             href="/auto-email-shoot/template"
-            className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            className="rounded-lg border border-line bg-surface px-4 py-2 text-sm font-medium text-ink hover:bg-surface2"
           >
             Edit Template
           </Link>
           <button
             onClick={() => setPreviewOpen(false)}
-            className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            className="rounded-lg border border-line bg-surface px-4 py-2 text-sm font-medium text-ink hover:bg-surface2"
           >
             Close Preview
           </button>
@@ -767,7 +778,7 @@ export default function AutoEmailShootPage() {
             onClick={handleSend}
             disabled={sending || previewHasErrors}
             title={previewHasErrors ? "Fix the issues above before sending" : undefined}
-            className="ml-auto rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-50"
+            className="ml-auto rounded-lg bg-brand px-4 py-2 text-sm font-medium text-brandink hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-50"
           >
             {sending ? "Sending…" : "Send Email"}
           </button>
