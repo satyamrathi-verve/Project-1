@@ -223,6 +223,29 @@ export default function CashflowProjectionPage() {
       .reduce((sum, r) => sum + r.expectedAmount, 0);
   }, [filteredProjection]);
 
+  // --- Extra visualisations (additive) ---
+  // Running total of expected cash as each period lands.
+  const cumulative = useMemo(() => {
+    let run = 0;
+    return buckets.map((b) => { run += b.amount; return { label: b.label, value: run }; });
+  }, [buckets]);
+  const cumChart = useMemo(() => {
+    const n = cumulative.length;
+    const maxCum = Math.max(1, ...cumulative.map((p) => p.value));
+    const pts = cumulative.map((p, i) => ({ x: n > 1 ? (i / (n - 1)) * 100 : 50, y: 38 - (p.value / maxCum) * 33 }));
+    const line = pts.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(" ");
+    const area = n > 0 ? `${line} L ${pts[n - 1].x.toFixed(1)} 40 L ${pts[0].x.toFixed(1)} 40 Z` : "";
+    return { pts, line, area };
+  }, [cumulative]);
+  const ontimeAmount = Math.max(0, totalExpected - overdueAmount);
+  const overduePct = totalExpected > 0 ? (overdueAmount / totalExpected) * 100 : 0;
+  const topCustomers = useMemo(() => {
+    const m = new Map<string, number>();
+    filteredProjection.forEach((r) => m.set(r.customer, (m.get(r.customer) ?? 0) + r.expectedAmount));
+    return Array.from(m.entries()).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value).slice(0, 6);
+  }, [filteredProjection]);
+  const maxCust = Math.max(1, ...topCustomers.map((c) => c.value));
+
   function setOverride(id: string, patch: { date?: string; amount?: number }) {
     setOverrides((prev) => ({ ...prev, [id]: { ...prev[id], ...patch } }));
   }
@@ -426,6 +449,62 @@ export default function CashflowProjectionPage() {
               </div>
             )}
           </section>
+
+          {!loading && buckets.length > 0 && (
+            <section aria-label="Additional cashflow insights" className="mb-6 grid gap-4 lg:grid-cols-3">
+              {/* Cumulative expected inflow */}
+              <div className="themed-surface rounded-xl border border-line bg-surface p-4 lg:col-span-2">
+                <h3 className="text-sm font-semibold text-ink">Cumulative expected inflow</h3>
+                <p className="mb-3 text-xs text-faint">Running total of cash as each period lands · closing {money(cumulative[cumulative.length - 1]?.value ?? 0)}</p>
+                <svg viewBox="0 0 100 40" preserveAspectRatio="none" className="h-40 w-full" role="img" aria-label="Cumulative expected inflow trend">
+                  {[10, 20, 30].map((y) => <line key={y} x1="0" y1={y} x2="100" y2={y} stroke="var(--line)" strokeWidth="0.3" strokeDasharray="1 1" />)}
+                  {cumChart.area && <path d={cumChart.area} fill="var(--brand)" opacity="0.12" />}
+                  <path d={cumChart.line} fill="none" stroke="var(--brand)" strokeWidth="0.9" vectorEffect="non-scaling-stroke" strokeLinejoin="round" />
+                  {cumChart.pts.map((p, i) => <circle key={i} cx={p.x} cy={p.y} r="0.9" fill="var(--brand)" />)}
+                </svg>
+                <div className="mt-1 flex justify-between text-[10px] text-faint">
+                  <span>{cumulative[0]?.label}</span>
+                  <span>{cumulative[cumulative.length - 1]?.label}</span>
+                </div>
+              </div>
+
+              {/* On-time vs Overdue donut */}
+              <div className="themed-surface rounded-xl border border-line bg-surface p-4">
+                <h3 className="text-sm font-semibold text-ink">At-risk inflow</h3>
+                <p className="mb-3 text-xs text-faint">Overdue vs on-time share.</p>
+                <div className="flex items-center gap-5">
+                  <svg viewBox="0 0 36 36" className="h-24 w-24 -rotate-90" role="img" aria-label={`${overduePct.toFixed(0)} percent overdue`}>
+                    <circle cx="18" cy="18" r="15.915" fill="none" stroke="#22c55e" strokeWidth="4" />
+                    <circle cx="18" cy="18" r="15.915" fill="none" stroke="#ef4444" strokeWidth="4" strokeDasharray={`${overduePct} ${100 - overduePct}`} strokeDashoffset="25" strokeLinecap="round" />
+                    <text x="18" y="18" transform="rotate(90 18 18)" textAnchor="middle" dominantBaseline="central" className="fill-ink text-[6px] font-bold">{overduePct.toFixed(0)}%</text>
+                  </svg>
+                  <ul className="space-y-1.5 text-xs">
+                    <li className="flex items-center gap-2 text-muted"><span className="h-2.5 w-2.5 rounded-sm bg-red-500" /> Overdue <span className="ml-auto font-semibold tabular-nums text-ink">{money(overdueAmount)}</span></li>
+                    <li className="flex items-center gap-2 text-muted"><span className="h-2.5 w-2.5 rounded-sm bg-green-500" /> On-time <span className="ml-auto font-semibold tabular-nums text-ink">{money(ontimeAmount)}</span></li>
+                  </ul>
+                </div>
+              </div>
+
+              {/* Top customers by expected inflow */}
+              <div className="themed-surface rounded-xl border border-line bg-surface p-4 lg:col-span-3">
+                <h3 className="text-sm font-semibold text-ink">Top customers by expected inflow</h3>
+                <p className="mb-3 text-xs text-faint">Who the biggest expected collections are from (INR).</p>
+                <ul className="space-y-2.5">
+                  {topCustomers.map((cst) => (
+                    <li key={cst.name}>
+                      <div className="mb-1 flex justify-between text-xs">
+                        <span className="truncate text-muted">{cst.name}</span>
+                        <span className="ml-2 shrink-0 font-semibold tabular-nums text-ink">{money(cst.value)}</span>
+                      </div>
+                      <div className="h-2.5 overflow-hidden rounded-full bg-surface2">
+                        <div className="h-full rounded-full" style={{ width: `${(cst.value / maxCust) * 100}%`, background: "linear-gradient(to right, var(--brand), var(--brand-dark))" }} />
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </section>
+          )}
 
           <div>
             <h3 className="mb-2 text-sm font-semibold text-muted">
