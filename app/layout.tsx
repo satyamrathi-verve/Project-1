@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Inter, Fraunces } from "next/font/google";
 import "./globals.css";
-import { Nav } from "@/components/Nav";
 import { AuthGate } from "@/components/AuthGate";
 import { ReminderSchedulerRunner } from "@/components/ReminderSchedulerRunner";
 import { Toaster } from "@/components/Toast";
@@ -27,15 +26,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body className="font-sans">
-        <AuthGate>
-          <ReminderSchedulerRunner />
-          <Toaster />
-          <CommandPalette />
-          <div className="flex h-screen">
-            <Nav />
-            <main className="flex-1 overflow-y-auto bg-canvas p-8">{children}</main>
-          </div>
-        </AuthGate>
+        <ReminderSchedulerRunner />
+        <Toaster />
+        <CommandPalette />
+        <AuthGate>{children}</AuthGate>
       </body>
     </html>
   );

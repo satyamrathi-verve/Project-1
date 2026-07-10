@@ -2,13 +2,15 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import { Nav } from "@/components/Nav";
 
 const AUTH_KEY = "ar-manager-auth";
 
 /*
   Hides the app until someone is "signed in" (per CLAUDE.md: front-end-only
-  gate, session kept in localStorage). Wraps the whole layout; the Sign In
-  page itself is always reachable.
+  gate, session kept in localStorage). Owns the shell decision: /signin gets
+  full-bleed control of the viewport (no sidebar before login); every other
+  route gets the Nav + main shell once authed.
 */
 export function AuthGate({ children }: { children: ReactNode }) {
   const pathname = usePathname();
@@ -26,8 +28,12 @@ export function AuthGate({ children }: { children: ReactNode }) {
   }, [pathname, router]);
 
   if (pathname === "/signin") return <>{children}</>;
-  if (!ready) return null;
-  if (!authed) return null;
+  if (!ready || !authed) return null;
 
-  return <>{children}</>;
+  return (
+    <div className="flex h-screen">
+      <Nav />
+      <main className="flex-1 overflow-y-auto bg-canvas p-8">{children}</main>
+    </div>
+  );
 }
