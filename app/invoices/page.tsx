@@ -35,12 +35,14 @@ const TOGGLE_COLS = [
   { key: "due_date", label: "Due" },
   { key: "currency", label: "Currency" },
   { key: "total", label: "Total" },
+  { key: "balance_due", label: "Balance Due" },
   { key: "status", label: "Status" },
 ];
 
 export default function InvoiceListPage() {
   const router = useRouter();
   const [rows, setRows] = useState<InvoiceRow[]>([]);
+  const [received, setReceived] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -68,12 +70,15 @@ export default function InvoiceListPage() {
   useEffect(() => {
     if (!supabase) { setLoading(false); return; }
     (async () => {
-      const { data, error } = await supabase
-        .from("invoices")
-        .select("id, invoice_no, invoice_date, due_date, total, status, customers(name, code)")
-        .order("invoice_date", { ascending: false });
-      if (error) setError(error.message);
-      else setRows((data as unknown as InvoiceRow[]) ?? []);
+      const [inv, alloc] = await Promise.all([
+        supabase!.from("invoices").select("id, invoice_no, invoice_date, due_date, total, status, customers(name, code)").order("invoice_date", { ascending: false }),
+        supabase!.from("receipt_allocations").select("invoice_id, amount"),
+      ]);
+      if (inv.error) setError(inv.error.message);
+      else setRows((inv.data as unknown as InvoiceRow[]) ?? []);
+      const m: Record<string, number> = {};
+      ((alloc.data as { invoice_id: string; amount: number }[]) ?? []).forEach((a) => { m[a.invoice_id] = (m[a.invoice_id] ?? 0) + Number(a.amount); });
+      setReceived(m);
       setLoading(false);
     })();
   }, []);
@@ -102,6 +107,7 @@ export default function InvoiceListPage() {
       switch (sortKey) {
         case "customer": return r.customers?.name ?? "";
         case "total": return Number(r.total);
+        case "balance_due": return balanceDueOf(r);
         case "status": return isOverdue(r.status, r.due_date) ? "overdue" : r.status;
         case "due_date": return r.due_date ?? "";
         case "invoice_no": return r.invoice_no;
@@ -118,7 +124,9 @@ export default function InvoiceListPage() {
 
   useEffect(() => { setPage(1); }, [search, status, amtMin, amtMax, dateFrom, dateTo, pageSize]);
 
+  const balanceDueOf = (r: InvoiceRow) => Math.max(0, Number(r.total) - (received[r.id] ?? 0));
   const grandTotal = filtered.reduce((s, r) => s + Number(r.total), 0);
+  const grandBalance = filtered.reduce((s, r) => s + balanceDueOf(r), 0);
   const paged = filtered.slice((page - 1) * pageSize, page * pageSize);
   const activeFilters = [amtMin, amtMax, dateFrom, dateTo].filter(Boolean).length + (status !== "all" ? 1 : 0);
 
@@ -147,6 +155,7 @@ export default function InvoiceListPage() {
     { header: "Due Date", value: (r) => formatDate(r.due_date) },
     { header: "Currency", value: () => "INR" },
     { header: "Total", value: (r) => Number(r.total).toFixed(2) },
+    { header: "Balance Due", value: (r) => balanceDueOf(r).toFixed(2) },
     { header: "Status", value: (r) => (isOverdue(r.status, r.due_date) ? "overdue" : r.status) },
   ];
   async function doExport(fmt: "csv" | "excel" | "pdf") {
@@ -182,6 +191,7 @@ export default function InvoiceListPage() {
   if (visible.has("due_date")) cols.push({ key: "due_date", header: "Due", sortable: true, render: (r) => formatDate(r.due_date) });
   if (visible.has("currency")) cols.push({ key: "currency", header: "Currency", className: "text-center", render: () => "INR" });
   if (visible.has("total")) cols.push({ key: "total", header: "Total (INR)", sortable: true, className: "text-right tabular-nums", render: (r) => money(r.total) });
+  if (visible.has("balance_due")) cols.push({ key: "balance_due", header: "Balance Due", sortable: true, className: "text-right tabular-nums", render: (r) => { const b = balanceDueOf(r); return <span className={b > 0 ? "font-medium text-red-600" : "text-muted"}>{money(b)}</span>; } });
   if (visible.has("status")) cols.push({
     key: "status", header: "Status", sortable: true,
     render: (r) => {
@@ -220,6 +230,7 @@ export default function InvoiceListPage() {
     <tr className="border-t-2 border-line bg-surface2 font-semibold text-ink">
       {cols.map((c, i) => {
         if (c.key === "total") return <td key={c.key} className="px-4 py-3 text-right tabular-nums">{money(grandTotal)}</td>;
+        if (c.key === "balance_due") return <td key={c.key} className="px-4 py-3 text-right tabular-nums text-red-600">{money(grandBalance)}</td>;
         if (i === 1) return <td key={c.key} className="px-4 py-3 whitespace-nowrap">Grand total · {filtered.length} inv</td>;
         return <td key={c.key} className="px-4 py-3" />;
       })}

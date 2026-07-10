@@ -68,41 +68,41 @@ export function Nav() {
       )}
 
       <nav
-        className={`fixed inset-y-0 left-0 z-50 flex h-full w-60 flex-col gap-1 overflow-y-auto border-r border-line bg-surface p-4 transition-transform duration-200 md:static md:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-50 flex h-full w-60 flex-col gap-1 overflow-y-auto border-r border-white/10 bg-[#0b1530] p-4 text-slate-300 transition-transform duration-200 md:static md:translate-x-0 ${
           open ? "translate-x-0" : "-translate-x-full"
         }`}
       >
         <button
           onClick={() => setOpen(false)}
           aria-label="Close navigation menu"
-          className="absolute right-2 top-2 rounded-lg p-1.5 text-muted hover:bg-surface2 hover:text-ink md:hidden"
+          className="absolute right-2 top-2 rounded-lg p-1.5 text-slate-400 hover:bg-white/10 hover:text-white md:hidden"
         >
           ✕
         </button>
         <div className="mb-4 flex items-center gap-2.5 px-1">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/verve-logo.png" alt="Verve Advisory" className="h-9 w-auto rounded-md bg-white p-1 shadow-sm" />
-          <span className="font-display text-sm font-semibold text-muted">AR Manager</span>
+          <span className="font-display text-sm font-semibold text-slate-400">AR Manager</span>
         </div>
         <button
           type="button"
           onClick={() => window.dispatchEvent(new Event(OPEN_EVENT))}
-          className="mb-3 flex items-center justify-between rounded-lg border border-line bg-canvas px-3 py-2 text-sm text-faint hover:border-brand hover:text-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-brand"
+          className="mb-3 flex items-center justify-between rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-400 hover:border-brand hover:text-slate-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-brand"
         >
           <span className="flex items-center gap-2">
             <Search className="h-3.5 w-3.5" />
             Search…
           </span>
-          <kbd className="rounded border border-line bg-surface px-1.5 py-0.5 text-[10px] font-medium">Ctrl K</kbd>
+          <kbd className="rounded border border-white/15 bg-white/10 px-1.5 py-0.5 text-[10px] font-medium">Ctrl K</kbd>
         </button>
         <div className="flex-1">
           {LINKS.map((l) => {
             const active = pathname === l.href;
             if (!l.built) {
               return (
-                <span key={l.href} className="flex items-center justify-between rounded-lg px-3 py-2 text-sm text-faint">
+                <span key={l.href} className="flex items-center justify-between rounded-lg px-3 py-2 text-sm text-slate-500">
                   {l.label}
-                  <span className="rounded bg-surface2 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-faint">build me</span>
+                  <span className="rounded bg-white/10 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-slate-400">build me</span>
                 </span>
               );
             }
@@ -112,7 +112,7 @@ export function Nav() {
                 href={l.href}
                 aria-current={active ? "page" : undefined}
                 className={`block rounded-lg px-3 py-2 text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-brand ${
-                  active ? "bg-brand text-brandink" : "text-muted hover:bg-surface2 hover:text-ink"
+                  active ? "bg-brand text-white shadow-sm" : "text-slate-300 hover:bg-white/10 hover:text-white"
                 }`}
               >
                 {l.label}
@@ -121,12 +121,12 @@ export function Nav() {
           })}
         </div>
         <div className="mt-2">
-          <p className="mb-1.5 px-1 text-[10px] font-semibold uppercase tracking-wider text-faint">Appearance</p>
+          <p className="mb-1.5 px-1 text-[10px] font-semibold uppercase tracking-wider text-slate-500">Appearance</p>
           <ThemeToggle />
         </div>
         <button
           onClick={handleSignOut}
-          className="mt-2 flex items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-medium text-muted hover:bg-surface2 hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-brand"
+          className="mt-2 flex items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-medium text-slate-300 hover:bg-white/10 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-brand"
         >
           <LogOut className="h-4 w-4" />
           Sign out

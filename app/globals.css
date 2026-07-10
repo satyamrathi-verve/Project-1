@@ -13,7 +13,7 @@
 :root,
 :root[data-theme="normal"] {
   color-scheme: light;
-  --canvas: #f5f7fb;
+  --canvas: #eaeef5;
   --surface: #ffffff;
   --surface2: #eef2f8;
   --ink: #101828;
@@ -64,6 +64,11 @@ body,
 nav,
 .themed-surface {
   transition: background-color 0.25s ease, color 0.25s ease, border-color 0.25s ease;
+}
+
+/* Subtle elevation so cards & tables lift off the canvas (kills the flat look). */
+.themed-surface {
+  box-shadow: 0 1px 2px rgb(16 24 40 / 0.04), 0 1px 3px rgb(16 24 40 / 0.06);
 }
 
 @keyframes slideIn {

@@ -131,6 +131,8 @@ export default function InvoicePrintPage() {
         {/* Header */}
         <div className="flex items-start justify-between border-b border-slate-200 pb-5">
           <div>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/verve-logo.png" alt="Verve Advisory" className="mb-2 h-10 w-auto" />
             <h1 className="text-xl font-extrabold text-brand">{company?.name ?? "—"}</h1>
             <p className="mt-1 whitespace-pre-line text-slate-500">{company?.address}</p>
             {company?.gstin && <p className="text-slate-500">GSTIN: {company.gstin}</p>}

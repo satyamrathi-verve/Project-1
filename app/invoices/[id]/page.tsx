@@ -184,6 +184,8 @@ export default function InvoiceViewPage() {
         <div className="grid gap-6 md:grid-cols-2">
           <div className="rounded-xl border border-line bg-surface themed-surface p-5">
             <p className="text-xs font-medium uppercase tracking-wide text-faint">From</p>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/verve-logo.png" alt="Verve Advisory" className="mb-2 inline-block h-8 w-auto rounded-md bg-white p-1.5 shadow-sm" />
             <p className="mt-1 text-lg font-semibold text-ink">{company?.name ?? "—"}</p>
             <dl className="mt-2 space-y-1 text-sm text-muted">
               {company?.address && <div>{company.address}</div>}
