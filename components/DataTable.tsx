@@ -35,7 +35,7 @@ export function DataTable<T extends { id: string }>({
 }: {
   columns: Column<T>[];
   rows: T[];
-  empty?: string;
+  empty?: ReactNode;
   /** Optional extra classes per row (e.g. red for overdue). */
   rowClassName?: (row: T) => string;
   /** Optional <tr> rendered after the body, e.g. a grand-total row. */

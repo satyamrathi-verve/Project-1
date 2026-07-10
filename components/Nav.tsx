@@ -3,7 +3,9 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { Search, LogOut } from "lucide-react";
 import { ThemeToggle } from "./ThemeToggle";
+import { OPEN_EVENT } from "./CommandPalette";
 
 const AUTH_KEY = "ar-manager-auth";
 
@@ -81,6 +83,17 @@ export function Nav() {
           <p className="text-xs font-semibold uppercase tracking-widest text-brand">Verve</p>
           <h1 className="font-display text-xl font-bold text-ink">AR Manager</h1>
         </div>
+        <button
+          type="button"
+          onClick={() => window.dispatchEvent(new Event(OPEN_EVENT))}
+          className="mb-3 flex items-center justify-between rounded-lg border border-line bg-canvas px-3 py-2 text-sm text-faint hover:border-brand hover:text-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-brand"
+        >
+          <span className="flex items-center gap-2">
+            <Search className="h-3.5 w-3.5" />
+            Search…
+          </span>
+          <kbd className="rounded border border-line bg-surface px-1.5 py-0.5 text-[10px] font-medium">Ctrl K</kbd>
+        </button>
         <div className="flex-1">
           {LINKS.map((l) => {
             const active = pathname === l.href;
@@ -96,7 +109,8 @@ export function Nav() {
               <Link
                 key={l.href}
                 href={l.href}
-                className={`block rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                aria-current={active ? "page" : undefined}
+                className={`block rounded-lg px-3 py-2 text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-brand ${
                   active ? "bg-brand text-brandink" : "text-muted hover:bg-surface2 hover:text-ink"
                 }`}
               >
@@ -111,8 +125,9 @@ export function Nav() {
         </div>
         <button
           onClick={handleSignOut}
-          className="mt-2 rounded-lg px-3 py-2 text-left text-sm font-medium text-muted hover:bg-surface2 hover:text-ink"
+          className="mt-2 flex items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-medium text-muted hover:bg-surface2 hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-brand"
         >
+          <LogOut className="h-4 w-4" />
           Sign out
         </button>
       </nav>

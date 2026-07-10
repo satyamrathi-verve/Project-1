@@ -1,7 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { UserPlus, BookPlus, LogOut, Clock } from "lucide-react";
+import { supabase } from "@/lib/supabase";
+import { getRecent } from "@/lib/recent";
+
+const AUTH_KEY = "ar-manager-auth";
+export const OPEN_EVENT = "ar:open-command-palette";
 
 // Kept as its own small list (rather than importing Nav's) so this file never
 // conflicts with edits to the sidebar — worth the minor duplication.
@@ -23,15 +29,82 @@ const ROUTES = [
   { href: "/dashboard", label: "Dashboard" },
 ];
 
-/** Global Ctrl/Cmd+K jump-to-screen palette. Mounted once in app/layout.tsx. */
+interface PaletteItem {
+  href: string;
+  label: string;
+  sublabel?: string;
+  tag: "Screen" | "Action" | "Recent" | "Customer" | "GL Account";
+  icon?: React.ReactNode;
+}
+
+const QUICK_ACTIONS: PaletteItem[] = [
+  { href: "/masters/customers?new=1", label: "Add Customer", tag: "Action", icon: <UserPlus className="h-3.5 w-3.5" /> },
+  { href: "/masters/gl?new=1", label: "Add GL Account", tag: "Action", icon: <BookPlus className="h-3.5 w-3.5" /> },
+  { href: "__signout__", label: "Sign out", tag: "Action", icon: <LogOut className="h-3.5 w-3.5" /> },
+];
+
+/**
+ * Global Ctrl/Cmd+K jump-to-screen palette. Mounted once in app/layout.tsx.
+ * Also runs quick actions and a live Supabase search across customers & GL
+ * accounts once you've typed 2+ characters.
+ */
 export function CommandPalette() {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [activeIndex, setActiveIndex] = useState(0);
+  const [dbResults, setDbResults] = useState<PaletteItem[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
 
-  const filtered = ROUTES.filter((r) => r.label.toLowerCase().includes(query.trim().toLowerCase()));
+  const staticItems: PaletteItem[] = useMemo(() => {
+    const recentItems: PaletteItem[] = getRecent().map((r) => ({
+      href: r.kind === "customer" ? `/masters/customers?edit=${r.id}` : `/masters/gl?edit=${r.id}`,
+      label: r.label,
+      sublabel: r.code,
+      tag: "Recent",
+      icon: <Clock className="h-3.5 w-3.5" />,
+    }));
+    const routeItems: PaletteItem[] = ROUTES.map((r) => ({ href: r.href, label: r.label, tag: "Screen" }));
+    return [...recentItems, ...QUICK_ACTIONS, ...routeItems];
+  }, []);
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const base = q ? staticItems.filter((i) => i.label.toLowerCase().includes(q)) : staticItems;
+    return [...base, ...dbResults];
+  }, [query, staticItems, dbResults]);
+
+  // Live search against Supabase for customers + GL accounts, debounced.
+  useEffect(() => {
+    if (!open || !supabase || query.trim().length < 2) {
+      setDbResults([]);
+      return;
+    }
+    const q = query.trim();
+    const handle = window.setTimeout(async () => {
+      const [{ data: customers }, { data: accounts }] = await Promise.all([
+        supabase!.from("customers").select("id, code, name").or(`name.ilike.%${q}%,code.ilike.%${q}%`).limit(5),
+        supabase!.from("gl_accounts").select("id, code, name").or(`name.ilike.%${q}%,code.ilike.%${q}%`).limit(5),
+      ]);
+      setDbResults([
+        ...((customers ?? []) as { id: string; code: string; name: string }[]).map((c) => ({
+          href: `/masters/customers?edit=${c.id}`,
+          label: c.name,
+          sublabel: c.code,
+          tag: "Customer" as const,
+          icon: <UserPlus className="h-3.5 w-3.5" />,
+        })),
+        ...((accounts ?? []) as { id: string; code: string; name: string }[]).map((a) => ({
+          href: `/masters/gl?edit=${a.id}`,
+          label: a.name,
+          sublabel: a.code,
+          tag: "GL Account" as const,
+          icon: <BookPlus className="h-3.5 w-3.5" />,
+        })),
+      ]);
+    }, 200);
+    return () => window.clearTimeout(handle);
+  }, [open, query]);
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -42,8 +115,15 @@ export function CommandPalette() {
         setOpen(false);
       }
     }
+    function onOpenEvent() {
+      setOpen(true);
+    }
     window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
+    window.addEventListener(OPEN_EVENT, onOpenEvent);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener(OPEN_EVENT, onOpenEvent);
+    };
   }, []);
 
   useEffect(() => {
@@ -58,9 +138,14 @@ export function CommandPalette() {
     setActiveIndex(0);
   }, [query]);
 
-  function go(href: string) {
+  function go(item: PaletteItem) {
     setOpen(false);
-    router.push(href);
+    if (item.href === "__signout__") {
+      window.localStorage.removeItem(AUTH_KEY);
+      router.push("/signin");
+      return;
+    }
+    router.push(item.href);
   }
 
   if (!open) return null;
@@ -81,7 +166,7 @@ export function CommandPalette() {
           ref={inputRef}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Jump to a screen…"
+          placeholder="Jump to a screen, or search customers & GL accounts…"
           aria-label="Jump to a screen"
           className="w-full border-b border-line bg-transparent px-4 py-3 text-sm text-ink outline-none placeholder:text-faint"
           onKeyDown={(e) => {
@@ -92,24 +177,35 @@ export function CommandPalette() {
               e.preventDefault();
               setActiveIndex((i) => Math.max(i - 1, 0));
             } else if (e.key === "Enter" && filtered[activeIndex]) {
-              go(filtered[activeIndex].href);
+              go(filtered[activeIndex]);
             }
           }}
         />
-        <ul role="listbox" aria-label="Screens" className="max-h-80 overflow-y-auto p-2">
+        <ul role="listbox" aria-label="Screens and records" className="max-h-80 overflow-y-auto p-2">
           {filtered.length === 0 ? (
-            <li className="px-3 py-6 text-center text-sm text-faint">No screens match &quot;{query}&quot;</li>
+            <li className="px-3 py-6 text-center text-sm text-faint">No matches for &quot;{query}&quot;</li>
           ) : (
-            filtered.map((r, i) => (
-              <li key={r.href} role="option" aria-selected={i === activeIndex}>
+            filtered.map((item, i) => (
+              <li key={`${item.tag}-${item.href}-${item.label}`} role="option" aria-selected={i === activeIndex}>
                 <button
-                  onClick={() => go(r.href)}
+                  onClick={() => go(item)}
                   onMouseEnter={() => setActiveIndex(i)}
-                  className={`block w-full rounded-lg px-3 py-2 text-left text-sm ${
+                  className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm ${
                     i === activeIndex ? "bg-brand text-brandink" : "text-ink hover:bg-surface2"
                   }`}
                 >
-                  {r.label}
+                  {item.icon && <span className={i === activeIndex ? "text-brandink" : "text-faint"}>{item.icon}</span>}
+                  <span className="flex-1 truncate">{item.label}</span>
+                  {item.sublabel && (
+                    <span className={`text-xs ${i === activeIndex ? "text-brandink/80" : "text-faint"}`}>{item.sublabel}</span>
+                  )}
+                  <span
+                    className={`rounded px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide ${
+                      i === activeIndex ? "bg-white/20 text-brandink" : "bg-surface2 text-faint"
+                    }`}
+                  >
+                    {item.tag}
+                  </span>
                 </button>
               </li>
             ))

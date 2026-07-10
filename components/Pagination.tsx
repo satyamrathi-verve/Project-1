@@ -20,7 +20,7 @@ export function Pagination({
   const to = Math.min(total, page * pageSize);
 
   return (
-    <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-sm text-slate-600">
+    <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-sm text-muted">
       <div className="flex items-center gap-2">
         <span>
           {from}–{to} of {total}
@@ -28,7 +28,7 @@ export function Pagination({
         <select
           value={pageSize}
           onChange={(e) => onPageSizeChange(Number(e.target.value))}
-          className="rounded-lg border border-slate-300 bg-white px-2 py-1 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand"
+          className="rounded-lg border border-line bg-surface px-2 py-1 text-sm text-ink outline-none focus:border-brand focus:ring-1 focus:ring-brand"
         >
           {PAGE_SIZES.map((size) => (
             <option key={size} value={size}>
@@ -42,7 +42,7 @@ export function Pagination({
           type="button"
           onClick={() => onPageChange(page - 1)}
           disabled={page <= 1}
-          className="rounded-lg border border-slate-300 px-3 py-1 disabled:cursor-not-allowed disabled:opacity-40"
+          className="rounded-lg border border-line px-3 py-1 text-ink hover:bg-surface2 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
         >
           Prev
         </button>
@@ -53,7 +53,7 @@ export function Pagination({
           type="button"
           onClick={() => onPageChange(page + 1)}
           disabled={page >= totalPages}
-          className="rounded-lg border border-slate-300 px-3 py-1 disabled:cursor-not-allowed disabled:opacity-40"
+          className="rounded-lg border border-line px-3 py-1 text-ink hover:bg-surface2 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
         >
           Next
         </button>

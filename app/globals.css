@@ -65,6 +65,11 @@ nav,
   transition: background-color 0.25s ease, color 0.25s ease, border-color 0.25s ease;
 }
 
+@keyframes slideIn {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
 /* Printable reports: hide the app chrome and let the report fill the page. */
 @media print {
   nav { display: none; }
