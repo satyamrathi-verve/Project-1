@@ -242,7 +242,7 @@ export default function CashflowProjectionPage() {
   const topCustomers = useMemo(() => {
     const m = new Map<string, number>();
     filteredProjection.forEach((r) => m.set(r.customer, (m.get(r.customer) ?? 0) + r.expectedAmount));
-    return Array.from(m.entries()).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value).slice(0, 6);
+    return Array.from(m.entries()).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value).slice(0, 4);
   }, [filteredProjection]);
   const maxCust = Math.max(1, ...topCustomers.map((c) => c.value));
 
@@ -453,10 +453,10 @@ export default function CashflowProjectionPage() {
           {!loading && buckets.length > 0 && (
             <section aria-label="Additional cashflow insights" className="mb-6 grid gap-4 lg:grid-cols-3">
               {/* Cumulative expected inflow */}
-              <div className="themed-surface rounded-xl border border-line bg-surface p-4 lg:col-span-2">
+              <div className="themed-surface rounded-xl border border-line bg-surface p-4">
                 <h3 className="text-sm font-semibold text-ink">Cumulative expected inflow</h3>
-                <p className="mb-3 text-xs text-faint">Running total of cash as each period lands · closing {money(cumulative[cumulative.length - 1]?.value ?? 0)}</p>
-                <svg viewBox="0 0 100 40" preserveAspectRatio="none" className="h-40 w-full" role="img" aria-label="Cumulative expected inflow trend">
+                <p className="mb-2 text-xs text-faint">Closing {money(cumulative[cumulative.length - 1]?.value ?? 0)}</p>
+                <svg viewBox="0 0 100 40" preserveAspectRatio="none" className="h-24 w-full" role="img" aria-label="Cumulative expected inflow trend">
                   {[10, 20, 30].map((y) => <line key={y} x1="0" y1={y} x2="100" y2={y} stroke="var(--line)" strokeWidth="0.3" strokeDasharray="1 1" />)}
                   {cumChart.area && <path d={cumChart.area} fill="var(--brand)" opacity="0.12" />}
                   <path d={cumChart.line} fill="none" stroke="var(--brand)" strokeWidth="0.9" vectorEffect="non-scaling-stroke" strokeLinejoin="round" />
@@ -471,9 +471,9 @@ export default function CashflowProjectionPage() {
               {/* On-time vs Overdue donut */}
               <div className="themed-surface rounded-xl border border-line bg-surface p-4">
                 <h3 className="text-sm font-semibold text-ink">At-risk inflow</h3>
-                <p className="mb-3 text-xs text-faint">Overdue vs on-time share.</p>
-                <div className="flex items-center gap-5">
-                  <svg viewBox="0 0 36 36" className="h-24 w-24 -rotate-90" role="img" aria-label={`${overduePct.toFixed(0)} percent overdue`}>
+                <p className="mb-2 text-xs text-faint">Overdue vs on-time share.</p>
+                <div className="flex items-center gap-3">
+                  <svg viewBox="0 0 36 36" className="h-20 w-20 shrink-0 -rotate-90" role="img" aria-label={`${overduePct.toFixed(0)} percent overdue`}>
                     <circle cx="18" cy="18" r="15.915" fill="none" stroke="#22c55e" strokeWidth="4" />
                     <circle cx="18" cy="18" r="15.915" fill="none" stroke="#ef4444" strokeWidth="4" strokeDasharray={`${overduePct} ${100 - overduePct}`} strokeDashoffset="25" strokeLinecap="round" />
                     <text x="18" y="18" transform="rotate(90 18 18)" textAnchor="middle" dominantBaseline="central" className="fill-ink text-[6px] font-bold">{overduePct.toFixed(0)}%</text>
@@ -486,10 +486,10 @@ export default function CashflowProjectionPage() {
               </div>
 
               {/* Top customers by expected inflow */}
-              <div className="themed-surface rounded-xl border border-line bg-surface p-4 lg:col-span-3">
-                <h3 className="text-sm font-semibold text-ink">Top customers by expected inflow</h3>
-                <p className="mb-3 text-xs text-faint">Who the biggest expected collections are from (INR).</p>
-                <ul className="space-y-2.5">
+              <div className="themed-surface rounded-xl border border-line bg-surface p-4">
+                <h3 className="text-sm font-semibold text-ink">Top customers by inflow</h3>
+                <p className="mb-2 text-xs text-faint">Biggest expected collections (INR).</p>
+                <ul className="space-y-1.5">
                   {topCustomers.map((cst) => (
                     <li key={cst.name}>
                       <div className="mb-1 flex justify-between text-xs">
